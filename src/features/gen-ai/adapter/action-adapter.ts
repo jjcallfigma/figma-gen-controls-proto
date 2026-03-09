@@ -18,6 +18,7 @@ import {
   pluginStrokeToClone,
   pluginEffectToClone,
   rgbToHex,
+  hexToRgb,
 } from "./fill-converter";
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -29,6 +30,33 @@ export interface ExecuteResult {
 }
 
 type Args = Record<string, unknown>;
+
+// ─── SVG path bounding box ───────────────────────────────────────────
+
+function svgPathBounds(d: string): { x: number; y: number; w: number; h: number } | null {
+  const coords: number[] = [];
+  const re = /[-+]?\d*\.?\d+/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(d)) !== null) {
+    coords.push(parseFloat(m[0]));
+  }
+
+  if (coords.length < 2) return null;
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (let i = 0; i < coords.length - 1; i += 2) {
+    const x = coords[i], y = coords[i + 1];
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+
+  if (!isFinite(minX)) return null;
+  const w = maxX - minX || 1;
+  const h = maxY - minY || 1;
+  return { x: minX, y: minY, w, h };
+}
 
 // ─── Resolve node ID ─────────────────────────────────────────────────
 
@@ -150,6 +178,17 @@ function handleCreate(
   const obj = buildBaseObject(realId, type, args, parentId);
   obj.properties = propertiesFn(args) as unknown as CanvasObject["properties"];
 
+  // Auto-size vectors to their path bounds when no explicit dimensions given
+  if (type === "vector" && args.data && !args.width && !args.height) {
+    const bounds = svgPathBounds(args.data as string);
+    if (bounds) {
+      obj.width = Math.ceil(bounds.w + bounds.x);
+      obj.height = Math.ceil(bounds.h + bounds.y);
+      if (obj.width < 1) obj.width = 1;
+      if (obj.height < 1) obj.height = 1;
+    }
+  }
+
   // Apply fills if provided in args
   if (args.fills && Array.isArray(args.fills)) {
     obj.fills = pluginFillsToClone(args.fills as Record<string, unknown>[]);
@@ -164,6 +203,22 @@ function handleCreate(
     type: "object.created",
     payload: { object: obj },
   });
+
+  // The clone's object.created reducer does not wire parent→child.
+  // Manually append to the parent's childIds so children render.
+  if (parentId) {
+    const parent = useAppStore.getState().objects[parentId];
+    if (parent && !parent.childIds.includes(realId)) {
+      dispatch({
+        type: "object.updated",
+        payload: {
+          id: parentId,
+          changes: { childIds: [...parent.childIds, realId] },
+          previousValues: { childIds: parent.childIds },
+        },
+      });
+    }
+  }
 
   createdIds.push(realId);
   return realId;
@@ -232,6 +287,77 @@ function handleSetFill(action: ActionDescriptor, tempIdMap: Map<string, string>)
         previousValues: { fills: obj.fills },
       },
     });
+    return;
+  }
+
+  // HSL-based property changes (saturation, hue, lightness)
+  const hslProp = args.property as string;
+  if ((hslProp === "saturation" || hslProp === "hue" || hslProp === "lightness" || hslProp === "brightness" || hslProp === "opacity") && typeof args.value === "number") {
+    const currentFill = obj.fills?.[0];
+    const currentHex = currentFill && "color" in currentFill ? (currentFill as { color: string }).color : "#FF0000";
+    const rgb = hexToRgb(currentHex);
+
+    // Convert RGB (0-1) to HSL
+    const max = Math.max(rgb.r, rgb.g, rgb.b);
+    const min = Math.min(rgb.r, rgb.g, rgb.b);
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
+
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === rgb.r) h = ((rgb.g - rgb.b) / d + (rgb.g < rgb.b ? 6 : 0)) / 6;
+      else if (max === rgb.g) h = ((rgb.b - rgb.r) / d + 2) / 6;
+      else h = ((rgb.r - rgb.g) / d + 4) / 6;
+    }
+
+    let nh = h, ns = s, nl = l;
+    if (hslProp === "saturation") ns = args.value as number;
+    else if (hslProp === "hue") nh = (args.value as number) / 360;
+    else if (hslProp === "lightness" || hslProp === "brightness") nl = args.value as number;
+
+    // HSL to RGB
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    let nr: number, ng: number, nb: number;
+    if (ns === 0) { nr = ng = nb = nl; }
+    else {
+      const q = nl < 0.5 ? nl * (1 + ns) : nl + ns - nl * ns;
+      const p = 2 * nl - q;
+      nr = hue2rgb(p, q, nh + 1 / 3);
+      ng = hue2rgb(p, q, nh);
+      nb = hue2rgb(p, q, nh - 1 / 3);
+    }
+
+    if (hslProp === "opacity") {
+      dispatch({
+        type: "object.updated",
+        payload: {
+          id: nodeId,
+          changes: {
+            fills: [{ id: nanoid(), type: "solid" as const, color: currentHex, opacity: args.value as number, visible: true }],
+          },
+          previousValues: { fills: obj.fills },
+        },
+      });
+    } else {
+      dispatch({
+        type: "object.updated",
+        payload: {
+          id: nodeId,
+          changes: {
+            fills: [{ id: nanoid(), type: "solid" as const, color: rgbToHex(nr, ng, nb), opacity: 1, visible: true }],
+          },
+          previousValues: { fills: obj.fills },
+        },
+      });
+    }
   }
 }
 

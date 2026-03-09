@@ -6,6 +6,7 @@ import type { UISpec, UIControl, ActionDescriptor } from "../types";
 import { collectControlDefaults } from "../runtime/template";
 import { compileGenerator, executeGenerator } from "../runtime/codegen";
 import { executeActions } from "../adapter/action-adapter";
+import "../styles/scoped.css";
 import {
   Slider,
   Toggle,
@@ -81,70 +82,116 @@ export function CustomControlsPopover({ spec, frameId, anchorRef, onClose }: Pro
 
   const rerunTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Sync values when spec controls change (e.g. new control added via modify)
+  useEffect(() => {
+    setValues((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const c of spec.controls) {
+        if (!(c.id in next)) {
+          next[c.id] = getDefaultValue(c);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [spec]);
+
   const handleControlChange = useCallback(
     (controlId: string, value: unknown) => {
       setValues((prev) => {
         const next = { ...prev, [controlId]: value };
 
-        // Debounce generator re-run
         if (rerunTimeoutRef.current) {
           clearTimeout(rerunTimeoutRef.current);
         }
 
         rerunTimeoutRef.current = setTimeout(() => {
-          if (!spec.generate) return;
-
           try {
-            const fn = compileGenerator(spec.generate);
-            const params = flattenColorStops(next);
-            const generated = executeGenerator(fn, params);
+            // When a generator exists, always re-run it so all control
+            // values stay coherent (avoids one control's direct dispatch
+            // being overwritten by the next control's generator re-run).
+            if (spec.generate) {
+              const fn = compileGenerator(spec.generate);
+              const params = flattenColorStops(next);
+              const generated = executeGenerator(fn, params);
 
-            // Rewrite for re-apply
-            const rootIdx = generated.findIndex(
-              (a: ActionDescriptor) => a.method === "createFrame" && !a.parentId,
-            );
+              const rootIdx = generated.findIndex(
+                (a: ActionDescriptor) => a.method === "createFrame" && !a.parentId,
+              );
 
-            const finalActions: ActionDescriptor[] = [];
+              const finalActions: ActionDescriptor[] = [];
 
-            if (rootIdx !== -1) {
-              const rootAction = generated[rootIdx];
-              const rootTempId = rootAction.tempId;
+              if (rootIdx !== -1) {
+                const rootAction = generated[rootIdx];
+                const rootTempId = rootAction.tempId;
 
-              if (
-                typeof rootAction.args?.width === "number" &&
-                typeof rootAction.args?.height === "number"
-              ) {
-                finalActions.push({
-                  method: "resize",
-                  nodeId: frameId,
-                  args: {
-                    width: rootAction.args.width as number,
-                    height: rootAction.args.height as number,
-                  },
-                });
-              }
-
-              finalActions.push({
-                method: "deleteChildren",
-                nodeId: frameId,
-                args: {},
-              });
-
-              for (let i = 0; i < generated.length; i++) {
-                if (i === rootIdx) continue;
-                const action = { ...generated[i], args: { ...generated[i].args } };
-                if (action.parentId === rootTempId) action.parentId = frameId;
-                if (action.nodeId === rootTempId) action.nodeId = frameId;
-                if (action.args?.targetNodeId === rootTempId || action.args?.targetNodeId === "root") {
-                  action.args.targetNodeId = frameId;
+                if (
+                  typeof rootAction.args?.width === "number" &&
+                  typeof rootAction.args?.height === "number"
+                ) {
+                  finalActions.push({
+                    method: "resize",
+                    nodeId: frameId,
+                    args: {
+                      width: rootAction.args.width as number,
+                      height: rootAction.args.height as number,
+                    },
+                  });
                 }
-                finalActions.push(action);
-              }
-            } else {
-              finalActions.push(...generated);
-            }
 
-            executeActions(finalActions);
+                finalActions.push({
+                  method: "deleteChildren",
+                  nodeId: frameId,
+                  args: {},
+                });
+
+                for (let i = 0; i < generated.length; i++) {
+                  if (i === rootIdx) continue;
+                  const action = { ...generated[i], args: { ...generated[i].args } };
+                  if (action.parentId === rootTempId) action.parentId = frameId;
+                  if (action.nodeId === rootTempId) action.nodeId = frameId;
+                  if (action.args?.targetNodeId === rootTempId || action.args?.targetNodeId === "root") {
+                    action.args.targetNodeId = frameId;
+                  }
+                  finalActions.push(action);
+                }
+              } else {
+                // No createFrame: remap any temp nodeId references to the
+                // root object so setFill/setStroke/etc. hit the real object.
+                for (const action of generated) {
+                  const a = { ...action, args: { ...action.args } };
+                  if (a.nodeId && !useAppStore.getState().objects[a.nodeId]) {
+                    a.nodeId = frameId;
+                  }
+                  finalActions.push(a);
+                }
+              }
+
+              executeActions(finalActions);
+            } else {
+              // Fallback: no generator, use action templates for direct dispatch
+              const control = spec.controls.find((c) => c.id === controlId);
+              const actionTemplate = (control as Record<string, unknown> | undefined)?.action as
+                | { method: string; nodeId?: string; args?: Record<string, unknown> }
+                | undefined;
+
+              if (actionTemplate) {
+                const action: ActionDescriptor = {
+                  method: actionTemplate.method,
+                  nodeId: actionTemplate.nodeId ?? frameId,
+                  args: { ...actionTemplate.args, value },
+                };
+
+                if (action.method === "resize" && action.args?.property) {
+                  const prop = action.args.property as string;
+                  delete action.args.property;
+                  action.args[prop] = value;
+                }
+
+                executeActions([action]);
+              }
+            }
           } catch (err) {
             console.error("[gen-ai] Control re-run error:", err);
           }
@@ -153,7 +200,7 @@ export function CustomControlsPopover({ spec, frameId, anchorRef, onClose }: Pro
         return next;
       });
     },
-    [spec.generate, frameId],
+    [spec, frameId],
   );
 
   // Clean up timeout on unmount
@@ -165,11 +212,8 @@ export function CustomControlsPopover({ spec, frameId, anchorRef, onClose }: Pro
 
   const handleModifyControls = useCallback(() => {
     window.dispatchEvent(
-      new CustomEvent("ai-mini-prompt-send", {
-        detail: {
-          message: "Modify the controls for this generator",
-          fingerprint: frameId,
-        },
+      new CustomEvent("gen-ai-open-modify", {
+        detail: { frameId },
       }),
     );
   }, [frameId]);
@@ -207,7 +251,7 @@ export function CustomControlsPopover({ spec, frameId, anchorRef, onClose }: Pro
 
       {/* Controls */}
       <div
-        className="overflow-y-auto px-2 py-2"
+        className="gen-ai-controls overflow-y-auto px-2 py-2"
         style={{ maxHeight: 400 }}
       >
         <div className="flex flex-col gap-1">

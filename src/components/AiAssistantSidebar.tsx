@@ -659,7 +659,6 @@ export default function AiAssistantSidebar({
   // Design chat hook (for the generic AI assistant)
   const designChat = useDesignChat();
   const genAI = useGenAI();
-  const [genAiMode, setGenAiMode] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const [chatBottomPad, setChatBottomPad] = useState(0);
@@ -839,21 +838,40 @@ export default function AiAssistantSidebar({
     return () => window.removeEventListener("ai-open-chat-session", handler);
   }, [designChat]);
 
-  const handleGenAiSend = useCallback(async () => {
+  // Listen for gen-ai modify control requests from the on-canvas prompt
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const detail = (e as CustomEvent).detail as { message: string; frameId: string } | undefined;
+      if (!detail?.message || !detail?.frameId) return;
+      await genAI.sendPrompt(detail.message);
+    };
+    window.addEventListener("gen-ai-modify-send", handler);
+    return () => window.removeEventListener("gen-ai-modify-send", handler);
+  }, [genAI]);
+
+  const isGenAiIntent = useCallback((text: string): boolean => {
+    const lower = text.toLowerCase();
+    return /\b(create|generate|make|build|draw)\b.*\b(grid|pattern|dots|circle|rectangle|square|ellipse|shape|line|triangle|polygon|sphere|cube|fractal|tree|voronoi|halftone|palette|swatches|gradient|spiral|scatter|wavy|noise|organic|mosaic|blob|attractor|metaball|turing|reaction.?diffusion|circle.?pack|dla|cellular.?automata|wave.?function|qr|chart|bar.?chart|pie|dither|posterize|flow.?field|wireframe|3d|superformula|rough|sketch|lsystem|l-system)\b/i.test(lower)
+      || /\b(generate|create|make|build)\b.*\bwith\b.*\b(controls?|sliders?|parameters?)\b/i.test(lower)
+      || /\b(generative|procedural|parametric|computational)\b/i.test(lower);
+  }, []);
+
+  const handleUnifiedSend = useCallback(async () => {
     const text = designChat.message.trim();
     if (!text) return;
-    designChat.setMessage("");
-    await genAI.sendPrompt(text);
-  }, [designChat, genAI]);
+
+    if (isGenAiIntent(text)) {
+      designChat.setMessage("");
+      await genAI.sendPrompt(text);
+    } else {
+      designChat.handleSend();
+    }
+  }, [designChat, genAI, isGenAiIntent]);
 
   const handleDesignChatKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (genAiMode) {
-        handleGenAiSend();
-      } else {
-        designChat.handleSend();
-      }
+      handleUnifiedSend();
     }
   };
 
@@ -1200,11 +1218,9 @@ export default function AiAssistantSidebar({
                   onChange={(e) => designChat.setMessage(e.target.value)}
                   onKeyDown={handleDesignChatKeyDown}
                   placeholder={
-                    genAiMode
-                      ? "Create a circle grid, 3D sphere, Voronoi pattern..."
-                      : designChat.liveSelectionLabel
-                        ? `Describe changes for ${designChat.liveSelectionLabel}...`
-                        : "Describe what to change..."
+                    designChat.liveSelectionLabel
+                      ? `Describe changes for ${designChat.liveSelectionLabel}...`
+                      : "Describe what to change..."
                   }
                   rows={3}
                   className="w-full px-3 py-3 resize-none border-0 outline-none bg-transparent"
@@ -1255,34 +1271,10 @@ export default function AiAssistantSidebar({
                     >
                       Claude
                     </button>
-                    <div
-                      style={{
-                        width: 1,
-                        height: 16,
-                        backgroundColor: "var(--color-border)",
-                        margin: "0 4px",
-                      }}
-                    />
-                    <button
-                      onClick={() => setGenAiMode((v) => !v)}
-                      className="px-2 py-0.5 rounded text-[11px] font-medium transition-colors"
-                      style={{
-                        backgroundColor: genAiMode
-                          ? "var(--color-bg-brand, #7B61FF)"
-                          : "transparent",
-                        color: genAiMode
-                          ? "white"
-                          : "var(--color-text-secondary)",
-                        border: "none",
-                      }}
-                      title="Toggle Gen-AI mode (generators, patterns, 3D)"
-                    >
-                      Gen-AI
-                    </button>
                   </div>
                   {designChat.isLoading || genAI.isLoading ? (
                     <button
-                      onClick={genAiMode ? genAI.stop : designChat.handleStop}
+                      onClick={genAI.isLoading ? genAI.stop : designChat.handleStop}
                       className="w-7 h-7 rounded-full flex items-center justify-center"
                       style={{
                         backgroundColor: "var(--color-bg-inverse, #000000)",
@@ -1303,7 +1295,7 @@ export default function AiAssistantSidebar({
                     </button>
                   ) : (
                     <button
-                      onClick={() => genAiMode ? handleGenAiSend() : designChat.handleSend()}
+                      onClick={handleUnifiedSend}
                       disabled={!canSendDesignChat}
                       className="w-7 h-7 rounded-full flex items-center justify-center"
                       style={{

@@ -4,8 +4,6 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import "@/features/gen-ai/styles/tokens.css";
-import "@/features/gen-ai/styles/plugin.css";
 
 const inter = Inter({
   subsets: ["latin"],

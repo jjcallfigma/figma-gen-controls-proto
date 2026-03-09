@@ -377,12 +377,24 @@ export function useGenAI() {
         result = { createdIds: [], rootFrameId: undefined, tempIdMap: new Map() };
       }
 
-      // Track the root frame
-      if (!existingFrameId && result.rootFrameId) {
-        rootFrameIdRef.current = result.rootFrameId;
+      // Track the root object (frame or first created object)
+      if (!existingFrameId) {
+        rootFrameIdRef.current = result.rootFrameId ?? result.createdIds[0];
       }
 
-      // Persist spec on the frame
+      // Rewrite temp IDs in control action templates to real IDs
+      if (result.tempIdMap.size > 0 && mergedUi.controls) {
+        for (const control of mergedUi.controls) {
+          const act = (control as Record<string, unknown>).action as
+            | { nodeId?: string; args?: Record<string, unknown> }
+            | undefined;
+          if (act?.nodeId) {
+            act.nodeId = result.tempIdMap.get(act.nodeId) ?? act.nodeId;
+          }
+        }
+      }
+
+      // Persist spec on the root object
       if (rootFrameIdRef.current) {
         const specJson = JSON.stringify(mergedUi);
         useAppStore.getState().dispatch({
@@ -394,7 +406,7 @@ export function useGenAI() {
           },
         });
 
-        // Select the frame
+        // Select the root object
         useAppStore.getState().dispatch({
           type: "selection.set",
           payload: { ids: [rootFrameIdRef.current] },

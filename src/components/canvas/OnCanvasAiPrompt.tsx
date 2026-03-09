@@ -101,6 +101,7 @@ export default function OnCanvasAiPrompt({
   const [forceNewThread, setForceNewThread] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const genAiModifyFrameRef = useRef<string | null>(null);
   const [persistentEntrypointPositions, setPersistentEntrypointPositions] =
     useState<
       {
@@ -464,7 +465,36 @@ export default function OnCanvasAiPrompt({
       setAiEditingObjectsGroup(entrypointOpenGroupKeyRef.current, [], false);
       entrypointOpenGroupKeyRef.current = null;
     }
+    if (!isOpen) {
+      genAiModifyFrameRef.current = null;
+    }
   }, [isOpen, setAiEditingObjectsGroup]);
+
+  // Listen for "Modify controls" from the gen-ai popover
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { frameId: string } | undefined;
+      if (!detail?.frameId) return;
+      const fid = detail.frameId;
+      genAiModifyFrameRef.current = fid;
+
+      const obj = objects[fid];
+      if (!obj) return;
+
+      // Ensure the object is selected
+      dispatch({
+        type: "selection.set",
+        payload: { ids: [fid] },
+      });
+
+      // Open the on-canvas prompt near the object
+      const wx = obj.x + obj.width;
+      const wy = obj.y;
+      queueMicrotask(() => openOnCanvasAiPrompt(fid, wx, wy, null, null));
+    };
+    window.addEventListener("gen-ai-open-modify", handler);
+    return () => window.removeEventListener("gen-ai-open-modify", handler);
+  }, [objects, dispatch, openOnCanvasAiPrompt]);
 
   // When opening from entrypoint after a text-only response, expand mini chat by default
   useEffect(() => {
@@ -523,29 +553,36 @@ export default function OnCanvasAiPrompt({
   const handleSend = useCallback(() => {
     const text = message.trim();
     if (!text || !selectionFingerprint) return;
-    window.dispatchEvent(
-      new CustomEvent("ai-mini-prompt-send", {
-        detail: {
-          message: text,
-          fingerprint: selectionFingerprint,
-          sessionId: effectiveSessionId ?? undefined,
-        },
-      }),
-    );
+
+    // If opened via "Modify controls", route through gen-ai pipeline
+    if (genAiModifyFrameRef.current) {
+      window.dispatchEvent(
+        new CustomEvent("gen-ai-modify-send", {
+          detail: {
+            message: text,
+            frameId: genAiModifyFrameRef.current,
+          },
+        }),
+      );
+    } else {
+      window.dispatchEvent(
+        new CustomEvent("ai-mini-prompt-send", {
+          detail: {
+            message: text,
+            fingerprint: selectionFingerprint,
+            sessionId: effectiveSessionId ?? undefined,
+          },
+        }),
+      );
+    }
+
     setMessage("");
-    // Clear selection when user submits so the canvas is focused on the AI response
-    dispatch({
-      type: "selection.changed",
-      payload: { selectedIds: [], previousSelection: selectedIds },
-    });
     closePrompt();
   }, [
     message,
     selectionFingerprint,
     effectiveSessionId,
     closePrompt,
-    dispatch,
-    selectedIds,
   ]);
 
   const handleKeyDown = useCallback(
