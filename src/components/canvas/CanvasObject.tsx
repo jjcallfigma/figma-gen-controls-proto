@@ -1566,7 +1566,7 @@ const CanvasObject = React.memo(function CanvasObject({
         const vectorProps =
           object.properties.type === "vector"
             ? object.properties
-            : { vectorPaths: "", svgContent: "", svgViewBox: undefined as string | undefined, handleMirroring: "NONE" as const };
+            : { vectorPaths: "", svgContent: "", svgViewBox: undefined as string | undefined, handleMirroring: "NONE" as const, windingRule: undefined as string | undefined };
 
         // Build effects styles
         const vectorEffectsStyles = effectsToCssStyles(object.effects);
@@ -1660,6 +1660,7 @@ const CanvasObject = React.memo(function CanvasObject({
                     d={vectorProps.vectorPaths}
                     fill={fillColor}
                     fillOpacity={fillOpacity}
+                    fillRule={vectorProps.windingRule === "EVENODD" ? "evenodd" : "nonzero"}
                     stroke={strokeColor}
                     strokeOpacity={strokeOpacity}
                     strokeWidth={strokeWidth}

@@ -32,6 +32,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
 import { deriveTitle, formatRelativeTime } from "@/core/utils/chatUtils";
+import { useGenAI } from "@/features/gen-ai/hooks/useGenAI";
 
 // ─── Make Chat View ──────────────────────────────────────────────────
 
@@ -657,6 +658,8 @@ export default function AiAssistantSidebar({
 
   // Design chat hook (for the generic AI assistant)
   const designChat = useDesignChat();
+  const genAI = useGenAI();
+  const [genAiMode, setGenAiMode] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const [chatBottomPad, setChatBottomPad] = useState(0);
@@ -836,15 +839,26 @@ export default function AiAssistantSidebar({
     return () => window.removeEventListener("ai-open-chat-session", handler);
   }, [designChat]);
 
+  const handleGenAiSend = useCallback(async () => {
+    const text = designChat.message.trim();
+    if (!text) return;
+    designChat.setMessage("");
+    await genAI.sendPrompt(text);
+  }, [designChat, genAI]);
+
   const handleDesignChatKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      designChat.handleSend();
+      if (genAiMode) {
+        handleGenAiSend();
+      } else {
+        designChat.handleSend();
+      }
     }
   };
 
   const canSendDesignChat =
-    designChat.message.trim().length > 0 && !designChat.isLoading;
+    designChat.message.trim().length > 0 && !designChat.isLoading && !genAI.isLoading;
 
   const handleActionClick = (action: string) => {
     if (action === "design-review") {
@@ -1186,9 +1200,11 @@ export default function AiAssistantSidebar({
                   onChange={(e) => designChat.setMessage(e.target.value)}
                   onKeyDown={handleDesignChatKeyDown}
                   placeholder={
-                    designChat.liveSelectionLabel
-                      ? `Describe changes for ${designChat.liveSelectionLabel}...`
-                      : "Describe what to change..."
+                    genAiMode
+                      ? "Create a circle grid, 3D sphere, Voronoi pattern..."
+                      : designChat.liveSelectionLabel
+                        ? `Describe changes for ${designChat.liveSelectionLabel}...`
+                        : "Describe what to change..."
                   }
                   rows={3}
                   className="w-full px-3 py-3 resize-none border-0 outline-none bg-transparent"
@@ -1239,10 +1255,34 @@ export default function AiAssistantSidebar({
                     >
                       Claude
                     </button>
-                  </div>
-                  {designChat.isLoading ? (
+                    <div
+                      style={{
+                        width: 1,
+                        height: 16,
+                        backgroundColor: "var(--color-border)",
+                        margin: "0 4px",
+                      }}
+                    />
                     <button
-                      onClick={designChat.handleStop}
+                      onClick={() => setGenAiMode((v) => !v)}
+                      className="px-2 py-0.5 rounded text-[11px] font-medium transition-colors"
+                      style={{
+                        backgroundColor: genAiMode
+                          ? "var(--color-bg-brand, #7B61FF)"
+                          : "transparent",
+                        color: genAiMode
+                          ? "white"
+                          : "var(--color-text-secondary)",
+                        border: "none",
+                      }}
+                      title="Toggle Gen-AI mode (generators, patterns, 3D)"
+                    >
+                      Gen-AI
+                    </button>
+                  </div>
+                  {designChat.isLoading || genAI.isLoading ? (
+                    <button
+                      onClick={genAiMode ? genAI.stop : designChat.handleStop}
                       className="w-7 h-7 rounded-full flex items-center justify-center"
                       style={{
                         backgroundColor: "var(--color-bg-inverse, #000000)",
@@ -1263,7 +1303,7 @@ export default function AiAssistantSidebar({
                     </button>
                   ) : (
                     <button
-                      onClick={() => designChat.handleSend()}
+                      onClick={() => genAiMode ? handleGenAiSend() : designChat.handleSend()}
                       disabled={!canSendDesignChat}
                       className="w-7 h-7 rounded-full flex items-center justify-center"
                       style={{

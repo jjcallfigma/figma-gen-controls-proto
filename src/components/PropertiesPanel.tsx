@@ -10,6 +10,7 @@ import MakeVersionPanel from "@/components/MakeVersionPanel";
 import PositionPanel from "@/components/PositionPanel";
 import StrokePropertiesPanel from "@/components/StrokePropertiesPanel";
 import TypographyPanel from "@/components/TypographyPanel";
+import { CustomControlsSection } from "@/features/gen-ai/components/CustomControlsSection";
 import { useNavigation } from "@/contexts/NavigationContext";
 import { useAppStore, useSelectedObjects } from "@/core/state/store";
 
@@ -456,6 +457,17 @@ export default function PropertiesPanel({
                       className="my-0"
                       style={{ borderTop: "1px solid var(--color-border)" }}
                     />
+                  </>
+                )}
+
+                {/* Gen-AI Custom Controls */}
+                {selectedObjects.length === 1 && selectedObjects[0].genAiSpec && (
+                  <>
+                    <div
+                      className="my-0"
+                      style={{ borderTop: "1px solid var(--color-border)" }}
+                    />
+                    <CustomControlsSection object={selectedObjects[0]} />
                   </>
                 )}
               </div>

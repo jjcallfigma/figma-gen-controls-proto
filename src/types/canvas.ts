@@ -328,6 +328,9 @@ export interface CanvasObject {
   // Serialized design tree at generation time (baseline for diffing user changes)
   sourceDesignSnapshot?: string;
 
+  // Gen-AI generator state (serialized UISpec JSON)
+  genAiSpec?: string;
+
   // Type-specific properties
   properties: CanvasObjectProperties;
 }
@@ -414,6 +417,7 @@ export interface VectorProperties {
   svgContent?: string; // Full SVG inner markup (multiple paths, complex shapes, icons)
   svgViewBox?: string; // Original SVG viewBox (e.g. "0 0 24 24") for correct rendering
   vectorNetwork?: any; // Complex vector network structure (for future use)
+  windingRule?: string; // "NONZERO" | "EVENODD" — maps to SVG fill-rule
   handleMirroring?: "ANGLE" | "ANGLE_AND_LENGTH" | "NONE";
   figmaNodeId?: string; // Store Figma node ID for SVG export
 
