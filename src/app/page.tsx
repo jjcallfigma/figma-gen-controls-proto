@@ -13,6 +13,7 @@ import SearchSidebar from "@/components/SearchSidebar";
 import AiAssistantSidebar from "@/components/AiAssistantSidebar";
 import MakeEditorOverlay from "@/components/MakeEditorOverlay";
 import { NavigationProvider, useNavigation } from "@/contexts/NavigationContext";
+import { Agentation } from "agentation";
 
 import { useClientSidePersistence } from "@/hooks/useClientSidePersistence";
 
@@ -61,6 +62,9 @@ function HomePageContent() {
       <MakeEditorOverlay />
 
       {/* Debug Portal Issues */}
+
+      {/* Agentation — dev-only annotation overlay */}
+      {process.env.NODE_ENV === "development" && <Agentation />}
     </div>
   );
 }

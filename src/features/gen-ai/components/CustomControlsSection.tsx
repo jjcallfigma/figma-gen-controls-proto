@@ -1,31 +1,30 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useAppStore } from "@/core/state/store";
 import type { CanvasObject } from "@/types/canvas";
 import type { UISpec } from "../types";
 import { CustomControlsPopover } from "./CustomControlsPopover";
+import { Icon24Plus } from "@/components/icons/icon-24-plus";
+import { Icon24MinusSmall } from "@/components/icons/icon-24-minus-small";
 
 interface Props {
   object: CanvasObject;
 }
 
 export function CustomControlsSection({ object }: Props) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [spec, setSpec] = useState<UISpec | null>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const iconButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    if (object.genAiSpec) {
-      try {
-        setSpec(JSON.parse(object.genAiSpec) as UISpec);
-      } catch {
-        setSpec(null);
-      }
-    } else {
-      setSpec(null);
+  const spec: UISpec | null = (() => {
+    if (!object.genAiSpec) return null;
+    try {
+      return JSON.parse(object.genAiSpec) as UISpec;
+    } catch {
+      return null;
     }
-  }, [object.genAiSpec]);
+  })();
 
   const handleDetach = useCallback(() => {
     useAppStore.getState().dispatch({
@@ -36,76 +35,83 @@ export function CustomControlsSection({ object }: Props) {
         previousValues: { genAiSpec: object.genAiSpec },
       },
     });
-    setIsOpen(false);
-    setSpec(null);
+    setIsPopoverOpen(false);
   }, [object.id, object.genAiSpec]);
 
-  if (!spec) return null;
-
-  const controlCount = spec.controls?.length ?? 0;
+  const hasControls = spec && spec.controls.length > 0;
 
   return (
-    <>
-      <div className="px-3 py-2">
-        <div className="flex items-center gap-1">
-          <button
-            ref={buttonRef}
-            onClick={() => setIsOpen((v) => !v)}
-            className="flex-1 flex items-center justify-between px-2 py-1.5 rounded-md text-[12px] font-medium transition-colors hover:bg-[var(--color-bg-secondary)]"
-            style={{
-              color: "var(--color-text)",
-              border: "1px solid var(--color-border)",
-              backgroundColor: isOpen ? "var(--color-bg-secondary)" : "transparent",
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.2"
-              >
-                <path d="M2 4h2m4 0h4M2 7h6m2 0h2M2 10h3m4 0h3" strokeLinecap="round" />
-                <circle cx="5.5" cy="4" r="1.5" />
-                <circle cx="9.5" cy="7" r="1.5" />
-                <circle cx="6.5" cy="10" r="1.5" />
-              </svg>
-              <span>Custom Controls</span>
-            </div>
-            <span
-              className="text-[11px]"
-              style={{ color: "var(--color-text-secondary)" }}
-            >
-              {controlCount}
-            </span>
-          </button>
-          <button
-            onClick={handleDetach}
-            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-md transition-colors hover:bg-[var(--color-bg-secondary)]"
-            style={{
-              color: "var(--color-text-secondary)",
-              border: "1px solid var(--color-border)",
-              backgroundColor: "transparent",
-            }}
-            title="Detach controls (converts to static frame)"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
-              <path d="M4 8L8 4M3 2H2v1M10 2h-1M10 9v1H9M2 9v1h1" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+    <div ref={sectionRef}>
+      {/* Section header */}
+      <div className="text-xs font-medium h-10 grid grid-cols-[1fr_auto] items-center pl-4 pr-2">
+        <div
+          style={{
+            color: hasControls ? "var(--color-text)" : "var(--color-text-secondary)",
+          }}
+        >
+          Custom
         </div>
+        <button
+          className="w-6 h-6 rounded-[5px] hover:bg-secondary"
+          title="Add control"
+        >
+          <Icon24Plus />
+        </button>
       </div>
 
-      {isOpen && spec && (
+      {/* Single row: [icon] [layer name] [—] */}
+      {hasControls && (
+      <div>
+        <div className="pb-2">
+          <div className="grid grid-cols-[auto_1fr_auto] gap-2 items-center pl-4 pr-2 h-8">
+            {/* Icon button — opens the controls popover */}
+            <button
+              ref={iconButtonRef}
+              onClick={() => setIsPopoverOpen((v) => !v)}
+              className="w-6 h-6 flex items-center justify-center rounded-[5px] hover:bg-secondary flex-shrink-0"
+              style={{ color: "var(--color-text-secondary)" }}
+              title="Edit controls"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
+                <path d="M2 4h2m4 0h6M2 8h6m2 0h4M2 12h3m4 0h5" strokeLinecap="round" />
+                <circle cx="5.5" cy="4" r="1.5" fill="var(--color-bg)" />
+                <circle cx="9.5" cy="8" r="1.5" fill="var(--color-bg)" />
+                <circle cx="6.5" cy="12" r="1.5" fill="var(--color-bg)" />
+              </svg>
+            </button>
+
+            {/* Layer name — disabled select trigger style */}
+            <div
+              className="flex h-6 w-full items-center rounded-[5px] border bg-background pl-2 py-2 text-xs cursor-default opacity-70 truncate"
+              title={object.name}
+            >
+              <span className="truncate">{object.name}</span>
+            </div>
+
+            {/* Remove button — detaches controls */}
+            <div className="flex items-center">
+              <button
+                onClick={handleDetach}
+                className="w-6 h-6 rounded-[5px] text-xs flex items-center justify-center hover:bg-secondary"
+                title="Remove custom controls"
+              >
+                <Icon24MinusSmall />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      )}
+
+      {/* Popover with all controls */}
+      {isPopoverOpen && hasControls && spec && (
         <CustomControlsPopover
           spec={spec}
           frameId={object.id}
-          anchorRef={buttonRef}
-          onClose={() => setIsOpen(false)}
+          anchorRef={iconButtonRef}
+          onClose={() => setIsPopoverOpen(false)}
         />
       )}
-    </>
+    </div>
   );
 }
