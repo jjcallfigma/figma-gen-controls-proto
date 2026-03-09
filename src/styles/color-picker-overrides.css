@@ -1,0 +1,111 @@
+/* Custom overrides for react-colorful color picker */
+
+.react-colorful--small {
+  height: max-content !important;
+  border-radius: 4px;
+  gap: 12px;
+}
+
+/* Make all pointers smaller */
+.react-colorful__saturation {
+  border-radius: 5px !important;
+  height: 208px !important;
+  border-bottom: none !important;
+  outline: 1px solid var(--color-bordertranslucent) !important;
+  outline-offset: -1px !important;
+}
+
+.react-colorful__hue {
+  height: 16px !important;
+  border-radius: 8px !important;
+  border: none !important;
+  outline: 1px solid var(--color-bordertranslucent) !important;
+  outline-offset: -1px !important;
+}
+
+.react-colorful__alpha {
+  height: 16px !important;
+  border-radius: 8px !important;
+  border: none !important;
+  outline: 1px solid var(--color-bordertranslucent) !important;
+  outline-offset: -1px !important;
+}
+
+.react-colorful__hue .react-colorful__interactive,
+.react-colorful__alpha .react-colorful__interactive {
+  left: 8px !important;
+  right: 8px !important;
+  border-radius: 5px !important;
+}
+
+/* Make all pointers smaller */
+.react-colorful__pointer {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* Specific override for saturation pointer */
+.react-colorful__saturation-pointer {
+  width: 12px !important;
+  height: 12px !important;
+}
+
+/* Specific override for hue pointer */
+.react-colorful__hue-pointer {
+  width: 16px !important;
+  height: 100% !important;
+  border-radius: 100% !important;
+  border-width: 4px !important;
+}
+
+/* Specific override for alpha pointer */
+.react-colorful__alpha-pointer {
+  width: 8px !important;
+  height: 100% !important;
+  border-radius: 4px !important;
+}
+
+/* Custom class for even smaller pointers */
+.react-colorful--small .react-colorful__pointer {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.react-colorful--small .react-colorful__saturation-pointer {
+  width: 16px !important;
+  height: 16px !important;
+  border-width: 4px !important;
+}
+
+.react-colorful--small .react-colorful__hue-pointer {
+  width: 16px !important;
+  height: 100% !important;
+}
+
+.react-colorful--small .react-colorful__alpha-pointer {
+  width: 16px !important;
+  height: 100% !important;
+  border-radius: 100% !important;
+  border-width: 4px !important;
+}
+
+/* Custom class for larger pointers */
+.react-colorful--large .react-colorful__pointer {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.react-colorful--large .react-colorful__saturation-pointer {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.react-colorful--large .react-colorful__hue-pointer {
+  width: 12px !important;
+  height: 100% !important;
+}
+
+.react-colorful--large .react-colorful__alpha-pointer {
+  width: 12px !important;
+  height: 100% !important;
+}

@@ -1,0 +1,25 @@
+import { memo } from "react";
+
+import type { SVGIconProps } from "./support/icon-types";
+
+/**
+ * icon.24.aspect-ratio.small
+ *
+ * ![](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0Ij4KICA8cmVjdCB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9IiMwMDAiIHJ4PSI0Ii8+CiAgPHBhdGggZmlsbD0iI2ZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNNy41IDdoOWEuNS41IDAgMCAxIC41LjV2OWEuNS41IDAgMCAxLS41LjVoLTlhLjUuNSAwIDAgMS0uNS0uNXYtOWEuNS41IDAgMCAxIC41LS41TTYgNy41QTEuNSAxLjUgMCAwIDEgNy41IDZoOUExLjUgMS41IDAgMCAxIDE4IDcuNXY5YTEuNSAxLjUgMCAwIDEtMS41IDEuNWgtOUExLjUgMS41IDAgMCAxIDYgMTYuNXpNOS41IDlhLjUuNSAwIDAgMC0uNS41djJhLjUuNSAwIDAgMCAxIDBWMTBoMS41YS41LjUgMCAwIDAgMC0xem01LjUgMy41YS41LjUgMCAwIDAtMSAwVjE0aC0xLjVhLjUuNSAwIDAgMCAwIDFoMmEuNS41IDAgMCAwIC41LS41eiIgY2xpcC1ydWxlPSJldmVub2RkIi8+Cjwvc3ZnPgo=)
+ *
+ * https://staging.figma.com/file/ycDPAaAih2bZY5LgXehVai/?node-id=1-1472
+ */
+export const Icon24AspectRatioSmall = memo(function Icon24AspectRatioSmall(
+  props: SVGIconProps
+) {
+  return (
+    <svg width="24" height="24" fill="none" viewBox="0 0 24 24" {...props}>
+      <path
+        fill="var(--color-icon)"
+        fillRule="evenodd"
+        d="M7.5 7h9a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5M6 7.5A1.5 1.5 0 0 1 7.5 6h9A1.5 1.5 0 0 1 18 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 16.5zM9.5 9a.5.5 0 0 0-.5.5v2a.5.5 0 0 0 1 0V10h1.5a.5.5 0 0 0 0-1zm5.5 3.5a.5.5 0 0 0-1 0V14h-1.5a.5.5 0 0 0 0 1h2a.5.5 0 0 0 .5-.5z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+});

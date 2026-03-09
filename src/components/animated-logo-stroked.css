@@ -1,0 +1,553 @@
+/**
+ * Styles for AnimatedLogoStroked – Figma logo loading animation (stroked variant).
+ * Theme via CSS variables on a parent or :root:
+ *   --figma-logo-stroke       default stroke (default: currentColor)
+ *   --figma-logo-stroke-light light variant stroke (default: #fff)
+ *   --figma-logo-stroke-dark  dark variant stroke (default: #333)
+ */
+
+/* -------------------------------------------------------------------------
+   Variables (override with CSS custom properties on parent or :root)
+   ------------------------------------------------------------------------- */
+.animatedLogoStroked {
+  --figma-logo-loop-time: 4s;
+  --figma-logo-ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --figma-logo-easing: cubic-bezier(0.12, 0, 0.39, 0);
+}
+
+/* -------------------------------------------------------------------------
+   Layout – wrapper and logo container
+   ------------------------------------------------------------------------- */
+.animatedLogoStroked {
+  align-self: center;
+  position: relative;
+  width: 180px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  user-select: none;
+}
+
+.animatedLogoStroked--fadeIn {
+  animation: figmaLogoFadeIn 1s both;
+}
+
+.animatedLogoStroked .strokedLogo {
+  display: block;
+  height: 30px;
+  user-select: none;
+}
+
+/* -------------------------------------------------------------------------
+   Logo structure – top row (pills + line)
+   ------------------------------------------------------------------------- */
+.animatedLogoStroked .strokedLogo .logoTop {
+  display: flex;
+  margin: auto;
+  width: 22px;
+  height: 12px;
+  user-select: none;
+}
+
+.animatedLogoStroked .strokedLogo .pillLeft {
+  width: 4px;
+  height: 8px;
+  border-left: 2px solid var(--figma-logo-stroke, currentColor);
+  border-top: 2px solid var(--figma-logo-stroke, currentColor);
+  border-bottom: 2px solid var(--figma-logo-stroke, currentColor);
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+  animation: figmaLogoPillLeftMove var(--figma-logo-loop-time)
+    var(--figma-logo-easing) infinite;
+  user-select: none;
+}
+
+.animatedLogoStroked .strokedLogo .pillCenter {
+  width: 10px;
+  height: 8px;
+  border-top: 2px solid var(--figma-logo-stroke, currentColor);
+  border-bottom: 2px solid var(--figma-logo-stroke, currentColor);
+  animation: figmaLogoPillCenterScale var(--figma-logo-loop-time)
+    var(--figma-logo-easing) infinite;
+  user-select: none;
+}
+
+.animatedLogoStroked .strokedLogo .pillRight {
+  width: 4px;
+  height: 8px;
+  border-right: 2px solid var(--figma-logo-stroke, currentColor);
+  border-top: 2px solid var(--figma-logo-stroke, currentColor);
+  border-bottom: 2px solid var(--figma-logo-stroke, currentColor);
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  animation: figmaLogoPillRightMove var(--figma-logo-loop-time)
+    var(--figma-logo-easing) infinite;
+  user-select: none;
+}
+
+.animatedLogoStroked .strokedLogo .lineContainer {
+  position: absolute;
+  top: -1px;
+  width: 18px;
+  height: 10px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  overflow: hidden;
+  animation: figmaLogoLineContainerScale var(--figma-logo-loop-time)
+    var(--figma-logo-easing) infinite;
+  user-select: none;
+}
+
+.animatedLogoStroked .strokedLogo .middleLine {
+  width: 2px;
+  height: 10px;
+  background-color: var(--figma-logo-stroke, currentColor);
+  margin: 0 auto;
+  animation: figmaLogoMiddleLineMove var(--figma-logo-loop-time)
+    var(--figma-logo-easing) infinite;
+  user-select: none;
+}
+
+/* -------------------------------------------------------------------------
+   Logo structure – middle row (petal + circle)
+   ------------------------------------------------------------------------- */
+.animatedLogoStroked .strokedLogo .logoMiddle {
+  display: flex;
+  margin: auto;
+  margin-top: -2px;
+  width: 22px;
+  height: 12px;
+  animation: figmaLogoMiddleRotate var(--figma-logo-loop-time)
+    var(--figma-logo-ease-out) infinite;
+  user-select: none;
+}
+
+.animatedLogoStroked .strokedLogo .petal {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--figma-logo-stroke, currentColor);
+  border-radius: 10px 0 0 10px;
+  transform: translateX(8px);
+  transform-origin: right center;
+  animation: figmaLogoPetalMove var(--figma-logo-loop-time)
+    var(--figma-logo-ease-out) infinite;
+  user-select: none;
+}
+
+.animatedLogoStroked .strokedLogo .circle {
+  width: 8px;
+  height: 8px;
+  margin-left: -2px;
+  border: 2px solid var(--figma-logo-stroke, currentColor);
+  border-radius: 10px;
+  transform-origin: left center;
+  animation: figmaLogoCircleMove var(--figma-logo-loop-time)
+    var(--figma-logo-ease-out) infinite;
+  user-select: none;
+}
+
+/* -------------------------------------------------------------------------
+   Logo structure – bottom row (drip)
+   ------------------------------------------------------------------------- */
+.animatedLogoStroked .strokedLogo .logoBottom {
+  margin: auto;
+  margin-top: -2px;
+  width: 22px;
+  height: 12px;
+  animation: figmaLogoBottomRotate var(--figma-logo-loop-time)
+    var(--figma-logo-ease-out) infinite;
+  user-select: none;
+}
+
+.animatedLogoStroked .strokedLogo .drip {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--figma-logo-stroke, currentColor);
+  border-radius: 10px 0 10px 10px;
+  transform-origin: top right;
+  animation: figmaLogoDripMove var(--figma-logo-loop-time)
+    var(--figma-logo-ease-out) infinite;
+  user-select: none;
+}
+
+/* -------------------------------------------------------------------------
+   Top row animation (scale in/out)
+   ------------------------------------------------------------------------- */
+.animatedLogoStroked .strokedLogo .logoTop {
+  animation: figmaLogoTopRotate var(--figma-logo-loop-time)
+    var(--figma-logo-easing) infinite;
+}
+
+/* -------------------------------------------------------------------------
+   Variants – stroke color overrides
+   ------------------------------------------------------------------------- */
+.animatedLogoStroked--light .strokedElement {
+  border-color: var(--figma-logo-stroke-light, #fff);
+}
+
+.animatedLogoStroked--light .middleLine {
+  background-color: var(--figma-logo-stroke-light, #fff);
+}
+
+.animatedLogoStroked--dark .strokedElement {
+  border-color: var(--figma-logo-stroke-dark, #333);
+}
+
+.animatedLogoStroked--dark .middleLine {
+  background-color: var(--figma-logo-stroke-dark, #333);
+}
+
+/* -------------------------------------------------------------------------
+   Keyframes
+   ------------------------------------------------------------------------- */
+@keyframes figmaLogoFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes figmaLogoTopRotate {
+  0% {
+    transform: scaleX(0.5);
+  }
+  5% {
+    transform: scaleX(1);
+  }
+  10% {
+    transform: scaleX(0.5);
+  }
+  15% {
+    transform: scaleX(1);
+  }
+  20% {
+    transform: scaleX(0.5);
+  }
+  25% {
+    transform: scaleX(1);
+  }
+  75% {
+    transform: scaleX(1);
+  }
+  80% {
+    transform: scaleX(0.5);
+  }
+  85% {
+    transform: scaleX(1);
+  }
+  90% {
+    transform: scaleX(0.5);
+  }
+  95% {
+    transform: scaleX(1);
+  }
+  100% {
+    transform: scaleX(0.5);
+  }
+}
+
+@keyframes figmaLogoMiddleRotate {
+  0% {
+    transform: rotateY(-90.1deg);
+  }
+  22% {
+    transform: rotateY(-90.1deg);
+  }
+  30% {
+    transform: rotateY(0deg);
+  }
+  72% {
+    transform: rotateY(0deg);
+  }
+  80% {
+    transform: rotateY(90.1deg);
+  }
+  100% {
+    transform: rotateY(90.1deg);
+  }
+}
+
+@keyframes figmaLogoBottomRotate {
+  0% {
+    transform: rotateY(-90.1deg);
+  }
+  26% {
+    transform: rotateY(-90.1deg);
+  }
+  32% {
+    transform: rotateY(0deg);
+  }
+  70% {
+    transform: rotateY(0deg);
+  }
+  76% {
+    transform: rotateY(90.1deg);
+  }
+  100% {
+    transform: rotateY(90.1deg);
+  }
+}
+
+@keyframes figmaLogoPillLeftMove {
+  0% {
+    transform: translateX(5px);
+  }
+  5% {
+    transform: translateX(0);
+  }
+  10% {
+    transform: translateX(5px);
+  }
+  15% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(5px);
+  }
+  25% {
+    transform: translateX(0);
+  }
+  75% {
+    transform: translateX(0);
+  }
+  80% {
+    transform: translateX(5px);
+  }
+  85% {
+    transform: translateX(0);
+  }
+  90% {
+    transform: translateX(5px);
+  }
+  95% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes figmaLogoPillCenterScale {
+  0% {
+    transform: scaleX(0.1);
+  }
+  5% {
+    transform: scaleX(1.1);
+  }
+  10% {
+    transform: scaleX(0.1);
+  }
+  15% {
+    transform: scaleX(1.1);
+  }
+  20% {
+    transform: scaleX(0.1);
+  }
+  25% {
+    transform: scaleX(1.1);
+  }
+  75% {
+    transform: scaleX(1.1);
+  }
+  80% {
+    transform: scaleX(0.1);
+  }
+  85% {
+    transform: scaleX(1.1);
+  }
+  90% {
+    transform: scaleX(0.1);
+  }
+  95% {
+    transform: scaleX(1.1);
+  }
+  100% {
+    transform: scaleX(0.1);
+  }
+}
+
+@keyframes figmaLogoPillRightMove {
+  0% {
+    transform: translateX(-5px);
+  }
+  5% {
+    transform: translateX(0);
+  }
+  10% {
+    transform: translateX(-5px);
+  }
+  15% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-5px);
+  }
+  25% {
+    transform: translateX(0);
+  }
+  75% {
+    transform: translateX(0);
+  }
+  80% {
+    transform: translateX(-5px);
+  }
+  85% {
+    transform: translateX(0);
+  }
+  90% {
+    transform: translateX(-5px);
+  }
+  95% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-5px);
+  }
+}
+
+@keyframes figmaLogoLineContainerScale {
+  0% {
+    transform: scaleX(0.5);
+  }
+  5% {
+    transform: scaleX(1);
+  }
+  10% {
+    transform: scaleX(0.5);
+  }
+  15% {
+    transform: scaleX(1);
+  }
+  20% {
+    transform: scaleX(0.5);
+  }
+  25% {
+    transform: scaleX(1);
+  }
+  75% {
+    transform: scaleX(1);
+  }
+  80% {
+    transform: scaleX(0.5);
+  }
+  85% {
+    transform: scaleX(1);
+  }
+  90% {
+    transform: scaleX(0.5);
+  }
+  95% {
+    transform: scaleX(1);
+  }
+  100% {
+    transform: scaleX(0.5);
+  }
+}
+
+@keyframes figmaLogoMiddleLineMove {
+  0% {
+    transform: translateX(-9px);
+  }
+  5% {
+    transform: translateX(0);
+  }
+  10% {
+    transform: translateX(9px);
+  }
+  10.1% {
+    transform: translateX(-9px);
+  }
+  15% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(9px);
+  }
+  20.1% {
+    transform: translateX(-9px);
+  }
+  25% {
+    transform: translateX(0);
+  }
+  75% {
+    transform: translateX(0);
+  }
+  80% {
+    transform: translateX(9px);
+  }
+  80.1% {
+    transform: translateX(-9px);
+  }
+  85% {
+    transform: translateX(0);
+  }
+  90% {
+    transform: translateX(9px);
+  }
+  90.1% {
+    transform: translateX(-9px);
+  }
+  95% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(9px);
+  }
+}
+
+@keyframes figmaLogoPetalMove {
+  22% {
+    transform: translateX(8px) scaleX(0.01);
+  }
+  28% {
+    transform: translateX(8px) scaleX(1);
+  }
+  74% {
+    transform: translateX(8px) scaleX(1);
+  }
+  80% {
+    transform: translateX(8px) scaleX(0.01);
+  }
+  100% {
+    transform: translateX(8px) scaleX(0.01);
+  }
+}
+
+@keyframes figmaLogoCircleMove {
+  24% {
+    transform: scaleX(0.01);
+  }
+  30% {
+    transform: scaleX(1);
+  }
+  72% {
+    transform: scaleX(1);
+  }
+  78% {
+    transform: scaleX(0.01);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes figmaLogoDripMove {
+  26% {
+    transform: scale(0.01);
+  }
+  32% {
+    transform: scale(1);
+  }
+  68% {
+    transform: scale(1);
+  }
+  74% {
+    transform: scale(0.01);
+  }
+  100% {
+    transform: scale(0.01);
+  }
+}

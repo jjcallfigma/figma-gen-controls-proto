@@ -1,0 +1,117 @@
+/* Import custom styles - must be before @tailwind directives */
+@import "../styles/color-picker-overrides.css";
+@import "../styles/tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Prevent iframes (Make previews) from stealing events mid-pan/zoom */
+[data-canvas-panning] iframe {
+  pointer-events: none !important;
+}
+
+/* Hide scrollbars */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+  scrollbar-width: none; /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
+/* Layers panel: thin scrollbars, visible only on panel hover */
+.layers-scroll {
+  scrollbar-width: none;
+  scrollbar-color: var(--color-icon-tertiary) transparent;
+}
+.layers-scroll::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.layers-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.layers-scroll::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 4px;
+}
+[data-layers-panel]:hover .layers-scroll {
+  scrollbar-width: thin;
+}
+[data-layers-panel]:hover .layers-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--color-icon-tertiary);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    /* font-feature-settings: "cv02", "cv03", "cv04", "cv11"; */
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    overscroll-behavior-x: none;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-inter), Inter, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    overscroll-behavior-x: none;
+  }
+}
+
+/* Make SVG icons use currentColor so they can be controlled with Tailwind text color classes */
+svg {
+  --color-icon: currentColor;
+}
+
+button {
+  @apply cursor-default;
+}
+
+input {
+  cursor: default;
+}
+
+/* Custom Toast Styles */
+.figma-toast {
+  margin-bottom: 80px;
+}
+
+/* Success toast with custom gradient */
+.success-toast {
+  @apply bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-500/20;
+  box-shadow: 0 8px 32px rgba(16, 185, 129, 0.2),
+    0 2px 8px rgba(16, 185, 129, 0.1);
+}
+
+/* Enhanced toast styling */
+.group.toast {
+  @apply backdrop-blur-sm;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ─── Markdown content in chat bubbles ──────────────────────────── */
+.markdown-content p {
+  margin: 0;
+}
+.markdown-content p + p {
+  margin-top: 0.5em;
+}
+.markdown-content ol,
+.markdown-content ul {
+  margin-top: 0.35em;
+  margin-bottom: 0.35em;
+}
+.markdown-content strong {
+  color: var(--color-text);
+}
