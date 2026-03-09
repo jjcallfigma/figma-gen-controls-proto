@@ -133,13 +133,13 @@ Status codes:
 - **Setup:** Have a generated frame with controls from any previous test
 - **Action:** Open the popover, click "Modify controls" at the bottom
 - **Expect:** The message gets forwarded to the AI sidebar on the left
-- **Status:**
+- **Status: Passed**
 
 ### 4.2 Add a control via AI sidebar
 - **Setup:** Have a sphere or grid on canvas with controls
 - **Prompt (in AI sidebar):** `Add an opacity control`
 - **Expect:** The popover updates to include a new opacity slider
-- **Status:**
+- **Status: Passed**
 
 ---
 
@@ -149,14 +149,14 @@ Status codes:
 - **Setup:** Create a generated frame, then click away to deselect
 - **Action:** Click the generated frame again to reselect
 - **Expect:** "Custom Controls" section reappears in properties panel with the same controls
-- **Status:**
+- **Status: Passed**
 
 ### 5.2 Controls survive page reload
 - **Setup:** Have a generated frame on canvas
 - **Action:** Refresh the browser page (Cmd+R)
 - **Expect:** The frame is still on the canvas. Selecting it shows "Custom Controls" section.
 - **Note:** This depends on the clone's persistence model -- if the clone doesn't persist objects across reloads, mark as N/A
-- **Status:**
+- **Status: Passed**
 
 ---
 

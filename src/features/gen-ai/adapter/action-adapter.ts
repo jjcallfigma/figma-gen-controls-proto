@@ -182,10 +182,12 @@ function handleCreate(
   if (type === "vector" && args.data && !args.width && !args.height) {
     const bounds = svgPathBounds(args.data as string);
     if (bounds) {
-      obj.width = Math.ceil(bounds.w + bounds.x);
-      obj.height = Math.ceil(bounds.h + bounds.y);
-      if (obj.width < 1) obj.width = 1;
-      if (obj.height < 1) obj.height = 1;
+      obj.width = Math.max(1, Math.ceil(bounds.w));
+      obj.height = Math.max(1, Math.ceil(bounds.h));
+      // If no explicit position was provided, shift to the path's min corner
+      // so the path renders within the object's bounding box
+      if (args.x == null) obj.x = Math.floor(bounds.x);
+      if (args.y == null) obj.y = Math.floor(bounds.y);
     }
   }
 

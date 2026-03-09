@@ -257,7 +257,7 @@ export function CustomControlsPopover({ spec, frameId, anchorRef, onClose }: Pro
         <div className="flex flex-col gap-1">
           {spec.controls.map((control) => (
             <ControlCard key={control.id} label={control.label || control.id}>
-              {renderControl(control, values[control.id], (val) =>
+              {renderControl(control, values[control.id] ?? getDefaultValue(control), (val) =>
                 handleControlChange(control.id, val),
               )}
             </ControlCard>

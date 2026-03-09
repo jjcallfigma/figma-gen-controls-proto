@@ -1648,25 +1648,53 @@ const CanvasObject = React.memo(function CanvasObject({
                     objectFit: "contain",
                   }}
                 />
-              ) : (
-                // If vectorPaths is SVG path data, render as SVG
-                <svg
-                  width="100%"
-                  height="100%"
-                  viewBox={`0 0 ${currentWidth} ${currentHeight}`}
-                  style={{ overflow: "visible" }}
-                >
-                  <path
-                    d={vectorProps.vectorPaths}
-                    fill={fillColor}
-                    fillOpacity={fillOpacity}
-                    fillRule={vectorProps.windingRule === "EVENODD" ? "evenodd" : "nonzero"}
-                    stroke={strokeColor}
-                    strokeOpacity={strokeOpacity}
-                    strokeWidth={strokeWidth}
-                  />
-                </svg>
-              )
+              ) : (() => {
+                // Compute viewBox from path data so paths with non-zero origins render correctly
+                const pathData = vectorProps.vectorPaths;
+                let vbX = 0, vbY = 0, vbW = currentWidth, vbH = currentHeight;
+                const coordNums: number[] = [];
+                const coordRe = /[-+]?\d*\.?\d+/g;
+                let cm: RegExpExecArray | null;
+                while ((cm = coordRe.exec(pathData)) !== null) {
+                  coordNums.push(parseFloat(cm[0]));
+                }
+                if (coordNums.length >= 2) {
+                  let pMinX = Infinity, pMinY = Infinity, pMaxX = -Infinity, pMaxY = -Infinity;
+                  for (let ci = 0; ci < coordNums.length - 1; ci += 2) {
+                    const cx = coordNums[ci], cy = coordNums[ci + 1];
+                    if (cx < pMinX) pMinX = cx;
+                    if (cx > pMaxX) pMaxX = cx;
+                    if (cy < pMinY) pMinY = cy;
+                    if (cy > pMaxY) pMaxY = cy;
+                  }
+                  if (isFinite(pMinX)) {
+                    const sw = strokeWidth || 0;
+                    vbX = pMinX - sw;
+                    vbY = pMinY - sw;
+                    vbW = Math.max(1, pMaxX - pMinX + sw * 2);
+                    vbH = Math.max(1, pMaxY - pMinY + sw * 2);
+                  }
+                }
+                return (
+                  <svg
+                    width="100%"
+                    height="100%"
+                    viewBox={`${vbX} ${vbY} ${vbW} ${vbH}`}
+                    preserveAspectRatio="xMidYMid meet"
+                    style={{ overflow: "visible" }}
+                  >
+                    <path
+                      d={pathData}
+                      fill={fillColor}
+                      fillOpacity={fillOpacity}
+                      fillRule={vectorProps.windingRule === "EVENODD" ? "evenodd" : "nonzero"}
+                      stroke={strokeColor}
+                      strokeOpacity={strokeOpacity}
+                      strokeWidth={strokeWidth}
+                    />
+                  </svg>
+                );
+              })()
             ) : null}
           </div>
         );

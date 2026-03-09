@@ -860,7 +860,12 @@ export default function AiAssistantSidebar({
     const text = designChat.message.trim();
     if (!text) return;
 
-    if (isGenAiIntent(text)) {
+    // If the selected object has genAiSpec, always route through gen-ai
+    const selectedIds = useAppStore.getState().selection.selectedIds ?? [];
+    const objects = useAppStore.getState().objects;
+    const selectedHasGenAi = selectedIds.length === 1 && objects[selectedIds[0]]?.genAiSpec;
+
+    if (selectedHasGenAi || isGenAiIntent(text)) {
       designChat.setMessage("");
       await genAI.sendPrompt(text);
     } else {
