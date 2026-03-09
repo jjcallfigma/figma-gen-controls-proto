@@ -308,7 +308,8 @@ export interface UIControl {
     | 'xy-pad'
     | 'range'
     | 'gradient-bar'
-    | 'curve';
+    | 'curve'
+    | '3d-preview';
   label?: string;
   props?: Record<string, unknown>;
   /** Single Figma API update when this control changes (simple case). */

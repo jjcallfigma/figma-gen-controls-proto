@@ -3,10 +3,9 @@
 import { useState, useCallback, useEffect, useRef, type RefObject } from "react";
 import { useAppStore } from "@/core/state/store";
 import type { UISpec, UIControl, ActionDescriptor } from "../types";
-import { collectControlDefaults } from "../runtime/template";
 import { compileGenerator, executeGenerator } from "../runtime/codegen";
 import { executeActions } from "../adapter/action-adapter";
-import "../styles/scoped.css";
+import "@rogieking/figui3/fig.css";
 import {
   Slider,
   Toggle,
@@ -16,18 +15,46 @@ import {
   NumberInput,
   SegmentedControl,
   AngleWheel,
-  ControlCard,
   XYPad,
   RangeSlider,
   GradientBar,
   CurveEditor,
+  CubePreview,
 } from "./controls";
+
+if (typeof window !== "undefined") {
+  import("@rogieking/figui3");
+}
 
 interface Props {
   spec: UISpec;
   frameId: string;
   anchorRef: RefObject<HTMLButtonElement | null>;
   onClose: () => void;
+}
+
+function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        padding: "4px 0",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 500,
+          color: "var(--color-text-secondary)",
+        }}
+      >
+        {label}
+      </span>
+      {children}
+    </div>
+  );
 }
 
 function getDefaultValue(control: UIControl): unknown {
@@ -62,6 +89,8 @@ function getDefaultValue(control: UIControl): unknown {
       return props.stops ?? [];
     case "curve":
       return props.defaultValue ?? [0.42, 0, 0.58, 1];
+    case "3d-preview":
+      return props.defaultValue ?? { rx: 0, ry: 0, rz: 0 };
     default:
       return props.defaultValue;
   }
@@ -251,16 +280,16 @@ export function CustomControlsPopover({ spec, frameId, anchorRef, onClose }: Pro
 
       {/* Controls */}
       <div
-        className="gen-ai-controls overflow-y-auto px-2 py-2"
+        className="overflow-y-auto px-2 py-2"
         style={{ maxHeight: 400 }}
       >
         <div className="flex flex-col gap-1">
           {spec.controls.map((control) => (
-            <ControlCard key={control.id} label={control.label || control.id}>
+            <FieldRow key={control.id} label={control.label || control.id}>
               {renderControl(control, values[control.id] ?? getDefaultValue(control), (val) =>
                 handleControlChange(control.id, val),
               )}
-            </ControlCard>
+            </FieldRow>
           ))}
         </div>
       </div>
@@ -424,6 +453,18 @@ function renderControl(
           onChange={onChange as (v: [number, number, number, number]) => void}
         />
       );
+
+    case "3d-preview": {
+      const v3d = value as { rx: number; ry: number; rz?: number };
+      return (
+        <CubePreview
+          rx={v3d.rx ?? 0}
+          ry={v3d.ry ?? 0}
+          rz={v3d.rz ?? 0}
+          onRotate={(rx, ry) => onChange({ rx, ry, rz: v3d.rz ?? 0 })}
+        />
+      );
+    }
 
     default:
       return (
