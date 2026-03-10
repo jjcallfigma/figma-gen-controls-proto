@@ -9,7 +9,7 @@ import { Icon24Plus } from "@/components/icons/icon-24-plus";
 import { Icon24MinusSmall } from "@/components/icons/icon-24-minus-small";
 import { Icon24CustomControls } from "@/components/icons/icon-24-custom-controls";
 
-const POPOVER_WIDTH = 240;
+const POPOVER_WIDTH = 260;
 
 interface Props {
   object: CanvasObject;

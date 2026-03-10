@@ -418,7 +418,7 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
       onClose={onClose}
       position={position}
       onPositionChange={onPositionChange}
-      width={240}
+      width={260}
       protectedZoneRef={protectedZoneRef}
     >
       <PropertyPopoverHeader
@@ -430,7 +430,7 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
       />
 
       {/* Controls */}
-      <div className="figui3-scope overflow-y-auto overflow-x-hidden py-2" style={{ maxHeight: 400 }}>
+      <div className="figui3-scope overflow-y-auto overflow-x-hidden py-2" style={{ maxHeight: 600 }}>
         <div className="flex flex-col">
           {spec.controls.map((control) => {
             const label = (control.type === "fill" || control.type === "gradient-bar") ? "Fill" : (control.label || control.id);
