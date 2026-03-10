@@ -5,6 +5,7 @@ import { useAppStore, useObjects } from "@/core/state/store";
 import { useTransientStore } from "@/core/state/transientStore";
 import { getAbsolutePosition, worldToScreen } from "@/core/utils/coordinates";
 import { useEffect, useRef, useState } from "react";
+import { IconControlsIndicator } from "../icons/icon-controls-indicator";
 import { Icon16CodeLayer } from "../icons/icon-16-code-layer";
 
 interface FrameLabelsProps {
@@ -318,6 +319,11 @@ export default function FrameLabels({ isDragging = false }: FrameLabelsProps) {
                   />
                 )}
                 {frame.name || "Frame"}
+                {frame.genAiSpec && (
+                  <IconControlsIndicator
+                    className="inline-block align-middle ml-1"
+                  />
+                )}
               </div>
             )}
           </div>

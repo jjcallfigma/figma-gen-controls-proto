@@ -463,6 +463,46 @@ export function useGenAI() {
         rootFrameIdRef.current = result.rootFrameId ?? result.createdIds[0];
       }
 
+      // On first creation, center the root object in the viewport and scroll to it
+      const centerNodeId = rootFrameIdRef.current;
+      if (!existingFrameId && centerNodeId) {
+        const state = useAppStore.getState();
+        const obj = state.objects[centerNodeId];
+        if (obj) {
+          const { viewport } = state;
+          // viewportBounds may be stale (800×600 default); use actual window size
+          const screenW = typeof window !== "undefined" ? window.innerWidth : viewport.viewportBounds.width;
+          const screenH = typeof window !== "undefined" ? window.innerHeight : viewport.viewportBounds.height;
+
+          const vpCenterX = (-viewport.panX + screenW / 2) / viewport.zoom;
+          const vpCenterY = (-viewport.panY + screenH / 2) / viewport.zoom;
+
+          const newX = Math.round(vpCenterX - obj.width / 2);
+          const newY = Math.round(vpCenterY - obj.height / 2);
+
+          state.dispatch({
+            type: "object.updated",
+            payload: {
+              id: centerNodeId,
+              changes: { x: newX, y: newY },
+              previousValues: { x: obj.x, y: obj.y },
+            },
+          });
+
+          // Pan viewport so the object is centered on screen (preserve zoom)
+          const newPanX = -(newX + obj.width / 2) * viewport.zoom + screenW / 2;
+          const newPanY = -(newY + obj.height / 2) * viewport.zoom + screenH / 2;
+
+          state.dispatch({
+            type: "viewport.changed",
+            payload: {
+              viewport: { ...viewport, panX: newPanX, panY: newPanY },
+              previousViewport: viewport,
+            },
+          });
+        }
+      }
+
       // Rewrite temp IDs in control action templates to real IDs
       if (result.tempIdMap.size > 0 && mergedUi.controls) {
         for (const control of mergedUi.controls) {
