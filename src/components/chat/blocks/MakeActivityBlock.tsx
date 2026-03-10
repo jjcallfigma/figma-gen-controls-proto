@@ -1,11 +1,14 @@
+import { Button } from "@/components/ui/button";
 import { Checkmark, Spinner, chatStyles } from "../primitives";
 
 export function MakeActivityBlock({
   content,
   isDone,
+  onOpen,
 }: {
   content: string;
   isDone: boolean;
+  onOpen?: () => void;
 }) {
   return (
     <div className="flex justify-start w-full">
@@ -17,7 +20,12 @@ export function MakeActivityBlock({
         }}
       >
         {isDone ? <Checkmark /> : <Spinner />}
-        {content}
+        <span className="flex-1">{content}</span>
+        {isDone && onOpen && (
+          <Button variant="outline" size="sm" onClick={onOpen}>
+            Open
+          </Button>
+        )}
       </div>
     </div>
   );

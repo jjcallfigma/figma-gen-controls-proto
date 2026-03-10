@@ -497,6 +497,30 @@ function meshToSinglePath(
   return parts.join(' ');
 }
 
+function meshToFacePath(
+  mesh: Mesh3D,
+  rx: number,
+  ry: number,
+  rz: number,
+  focalLength: number,
+  cx: number,
+  cy: number,
+): string {
+  const rotated = mesh.vertices.map(v => rotate3D(v, rx, ry, rz));
+  const projected = rotated.map(v => project3D(v, focalLength));
+  const parts: string[] = [];
+  for (const face of mesh.faces) {
+    const pts = face.map(i => projected[i]);
+    if (pts.some(p => !isFinite(p.x) || !isFinite(p.y))) continue;
+    const sub = pts.map((p, i) =>
+      `${i === 0 ? 'M' : 'L'} ${(cx + p.x).toFixed(3)} ${(cy + p.y).toFixed(3)}`
+    );
+    sub.push('Z');
+    parts.push(sub.join(' '));
+  }
+  return parts.join(' ');
+}
+
 // ─── SVG path sampling ────────────────────────────────────────────────────────
 
 interface PathSample { x: number; y: number; angle: number }
@@ -1903,6 +1927,7 @@ const generatorLib = {
   pointsToSvgPath,
   meshToEdges,
   meshToSinglePath,
+  meshToFacePath,
 
   // --- SVG path sampling ---
   samplePath,

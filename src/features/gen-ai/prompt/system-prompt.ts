@@ -367,19 +367,30 @@ point. These are defaults — the user can override any of them.
   2D artwork (Mondrian paintings, dot grids, stripe patterns) is NOT a 3D object — never
   use 3d-preview for those.
   CRITICAL — 3D rendering: use \`lib.meshToSinglePath(mesh, rx, ry, rz, focalLength, cx, cy)\`
-  to render the entire wireframe as a SINGLE vector node with one SVG path. This produces
-  clean wireframes without gaps between faces. Do NOT create a separate vector per face —
-  that causes visible gaps. Example:
+  to render the wireframe as a SINGLE vector node with one SVG path. This produces
+  clean wireframes without gaps. Do NOT create a separate vector per face.
+  FILL SUPPORT: meshToSinglePath renders edges (lines with no area) — gradient/solid fills
+  are invisible on it. To add a fill behind the wireframe, use
+  \`lib.meshToFacePath(mesh, rx, ry, rz, focalLength, cx, cy)\` which renders CLOSED face
+  polygons. Layer the fill shape BEHIND the wireframe. Example:
     const mesh = lib.sphere(radius, segments);
     const rot = params.rotation;
-    const path = lib.meshToSinglePath(mesh, rot.rx, rot.ry, rot.rz, 500, SIZE/2, SIZE/2);
-    return [
+    const wirePath = lib.meshToSinglePath(mesh, rot.rx, rot.ry, rot.rz, 500, SIZE/2, SIZE/2);
+    const fillPath = lib.meshToFacePath(mesh, rot.rx, rot.ry, rot.rz, 500, SIZE/2, SIZE/2);
+    const actions = [
       { method: 'createFrame', tempId: 'root', args: { x:0, y:0, width: SIZE, height: SIZE, name: '3D Sphere' } },
+    ];
+    if (showFill) {
+      actions.push({ method: 'createVector', parentId: 'root', tempId: 'fillLayer',
+        args: { data: fillPath, name: 'fill', fills: [gradientFill] } });
+    }
+    actions.push(
       { method: 'createVector', parentId: 'root', tempId: 'wireframe',
-        args: { data: path, name: 'wireframe', fills: [] } },
+        args: { data: wirePath, name: 'wireframe', fills: [] } },
       { method: 'setStroke', nodeId: 'wireframe',
         args: { strokes: [{ type: 'SOLID', color: strokeColor }], weight: strokeWeight } }
-    ];
+    );
+    return actions;
 
 - **Patterns & grids** (dot grid, circle grid, scatter, tile):
   slider for density/count/spacing/size. range for size variation. curve for distribution
@@ -581,7 +592,9 @@ Available 3D helper functions in generators:
   lib.rotate3D(vertex, rx, ry, rz) → vertex   lib.project3D(vertex, focalLength) → Point2D
   lib.meshToEdges(mesh) → [[a,b], ...]  — deduplicated edge list from mesh faces
   lib.meshToSinglePath(mesh, rx, ry, rz, focalLength, cx, cy) → SVG path string
-    ↑ PREFERRED: renders the entire 3D wireframe as ONE path (no gaps between faces)
+    ↑ PREFERRED for wireframe strokes: renders edges as ONE path (no area to fill)
+  lib.meshToFacePath(mesh, rx, ry, rz, focalLength, cx, cy) → SVG path string
+    ↑ Use for FILLS: renders closed face polygons that can be filled with color/gradient
 
 ---
 

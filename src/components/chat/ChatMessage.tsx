@@ -11,6 +11,7 @@ export interface ChatMessageProps {
   isStreaming?: boolean;
   onChoiceResponse?: (messageId: string, selectedIds: string[]) => void;
   onSuggestionClick?: (suggestion: string) => void;
+  onOpenGenAiControls?: (frameId: string) => void;
 }
 
 export function ChatMessage({
@@ -19,6 +20,7 @@ export function ChatMessage({
   isStreaming,
   onChoiceResponse,
   onSuggestionClick,
+  onOpenGenAiControls,
 }: ChatMessageProps) {
   // Auto follow-up messages are hidden
   if (msg.messageType === "auto_followup") {
@@ -41,6 +43,11 @@ export function ChatMessage({
         <MakeActivityBlock
           content={msg.content}
           isDone={msg.makeActivityDone === true}
+          onOpen={
+            msg.genAiFrameId && onOpenGenAiControls
+              ? () => onOpenGenAiControls(msg.genAiFrameId!)
+              : undefined
+          }
         />
       </div>
     );

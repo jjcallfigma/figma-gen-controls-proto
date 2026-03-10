@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAppStore } from "@/core/state/store";
 import type { CanvasObject } from "@/types/canvas";
 import type { UISpec } from "../types";
@@ -58,6 +58,17 @@ export function CustomControlsSection({ object }: Props) {
       openPopover();
     }
   }, [isPopoverOpen, openPopover]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const frameId = (e as CustomEvent).detail?.frameId;
+      if (frameId === object.id && hasControls) {
+        requestAnimationFrame(() => openPopover());
+      }
+    };
+    window.addEventListener("gen-ai-open-controls", handler);
+    return () => window.removeEventListener("gen-ai-open-controls", handler);
+  }, [object.id, hasControls, openPopover]);
 
   return (
     <div ref={sectionRef}>

@@ -35,6 +35,7 @@ import { Input } from "./ui/input";
 import { deriveTitle, formatRelativeTime } from "@/core/utils/chatUtils";
 import { useGenAI } from "@/features/gen-ai/hooks/useGenAI";
 import { MOCK_CONTROLS, getMockControlKeys } from "@/features/gen-ai/demo/mock-controls";
+import { nanoid } from "nanoid";
 
 // ─── Make Chat View ──────────────────────────────────────────────────
 
@@ -840,25 +841,58 @@ export default function AiAssistantSidebar({
     return () => window.removeEventListener("ai-open-chat-session", handler);
   }, [designChat]);
 
+  // Shared helper: run a Gen AI prompt and surface it in the design chat
+  const runGenAiWithChat = useCallback(
+    async (promptText: string) => {
+      const userMsgId = nanoid();
+      const activityMsgId = nanoid();
+
+      designChat.injectMessage({
+        id: userMsgId,
+        role: "user",
+        content: promptText,
+        timestamp: Date.now(),
+      });
+
+      designChat.injectMessage({
+        id: activityMsgId,
+        role: "assistant",
+        content: "Custom controls",
+        timestamp: Date.now(),
+        messageType: "make_activity",
+        makeActivityDone: false,
+      });
+
+      await genAI.sendPrompt(promptText, {
+        onComplete: (summary, frameId) => {
+          const label = summary || "Custom controls";
+          designChat.updateMessage(activityMsgId, {
+            content: label,
+            makeActivityDone: true,
+            genAiFrameId: frameId,
+          });
+        },
+      });
+    },
+    [designChat, genAI],
+  );
+
   // Listen for gen-ai modify control requests from the on-canvas prompt
   useEffect(() => {
     const handler = async (e: Event) => {
       const detail = (e as CustomEvent).detail as { message: string; frameId: string } | undefined;
       if (!detail?.message || !detail?.frameId) return;
 
-      // Restore the existing spec/frame context so sendPrompt knows it's a
-      // modify operation (rewriteActionsForReapply targets the existing frame
-      // instead of creating a new one).
       const obj = useAppStore.getState().objects[detail.frameId];
       if (obj?.genAiSpec) {
         genAI.restoreFromFrame(detail.frameId, obj.genAiSpec);
       }
 
-      await genAI.sendPrompt(detail.message);
+      await runGenAiWithChat(detail.message);
     };
     window.addEventListener("gen-ai-modify-send", handler);
     return () => window.removeEventListener("gen-ai-modify-send", handler);
-  }, [genAI]);
+  }, [genAI, runGenAiWithChat]);
 
   // isGenAiIntent is imported from @/features/gen-ai/utils/intent
 
@@ -905,11 +939,11 @@ export default function AiAssistantSidebar({
       if (selectedHasGenAi) {
         genAI.restoreFromFrame(selectedIds[0], selectedObj!.genAiSpec!);
       }
-      await genAI.sendPrompt(text);
+      await runGenAiWithChat(text);
     } else {
       designChat.handleSend();
     }
-  }, [designChat, genAI, handleSlashCommand]);
+  }, [designChat, genAI, handleSlashCommand, runGenAiWithChat]);
 
   const handleDesignChatKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -917,6 +951,25 @@ export default function AiAssistantSidebar({
       handleUnifiedSend();
     }
   };
+
+  const handleOpenGenAiControls = useCallback((frameId: string) => {
+    const state = useAppStore.getState();
+    const alreadySelected = state.selection.selectedIds?.includes(frameId);
+
+    if (!alreadySelected) {
+      state.dispatch({
+        type: "selection.set",
+        payload: { ids: [frameId] },
+      });
+    }
+
+    // Allow React to mount CustomControlsSection after selection change
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("gen-ai-open-controls", { detail: { frameId } }),
+      );
+    }, alreadySelected ? 0 : 150);
+  }, []);
 
   const canSendDesignChat =
     designChat.message.trim().length > 0 && !designChat.isLoading && !genAI.isLoading;
@@ -1221,6 +1274,7 @@ export default function AiAssistantSidebar({
                           onChoiceResponse={designChat.handleChoiceResponse}
                           onSuggestionClick={(s) => designChat.handleSend(s)}
                           isStreaming={isStreaming}
+                          onOpenGenAiControls={handleOpenGenAiControls}
                         />
                       );
                     });

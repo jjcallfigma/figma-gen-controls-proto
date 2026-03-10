@@ -40,6 +40,8 @@ export interface DesignChatMessage {
   contentBlocks?: ContentBlocksData;
   /** AI's intermediate reasoning/thinking text (shown alongside tool calls) */
   thinking?: string;
+  /** For gen-ai activity messages: the root frame ID with custom controls */
+  genAiFrameId?: string;
 }
 
 export interface ToolCallInfo {
@@ -133,6 +135,10 @@ export interface UseDesignChatReturn {
   handleChoiceResponse: (messageId: string, selectedIds: string[]) => void;
   /** Find the most recent session that overlaps with the given node IDs */
   findOverlappingSession: (nodeIds: string[]) => OverlappingSessionInfo | null;
+  /** Append a message to the active session without triggering the API */
+  injectMessage: (msg: DesignChatMessage) => void;
+  /** Patch a message in the active session by ID */
+  updateMessage: (id: string, patch: Partial<DesignChatMessage>) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -1982,6 +1988,22 @@ export function useDesignChat(): UseDesignChatReturn {
     [],
   );
 
+  const injectMessage = useCallback(
+    (msg: DesignChatMessage) => {
+      updateSessionHistoryFn(activeSessionIdRef.current, (prev) => [...prev, msg]);
+    },
+    [updateSessionHistoryFn],
+  );
+
+  const updateMessage = useCallback(
+    (id: string, patch: Partial<DesignChatMessage>) => {
+      updateSessionHistoryFn(activeSessionIdRef.current, (prev) =>
+        prev.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+      );
+    },
+    [updateSessionHistoryFn],
+  );
+
   return {
     chatHistory,
     message,
@@ -2003,5 +2025,7 @@ export function useDesignChat(): UseDesignChatReturn {
     runDesignReview,
     handleChoiceResponse,
     findOverlappingSession,
+    injectMessage,
+    updateMessage,
   };
 }

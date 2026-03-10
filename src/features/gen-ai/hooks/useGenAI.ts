@@ -241,7 +241,13 @@ export function useGenAI() {
   /**
    * Send a prompt to the gen-ai LLM pipeline and execute the result.
    */
-  const sendPrompt = useCallback(async (promptText: string): Promise<ExecuteResult | null> => {
+  const sendPrompt = useCallback(async (
+    promptText: string,
+    opts?: {
+      onStreamingUpdate?: (partialText: string) => void;
+      onComplete?: (summary: string | undefined, frameId: string | undefined) => void;
+    },
+  ): Promise<ExecuteResult | null> => {
     setIsLoading(true);
     setError(null);
 
@@ -324,6 +330,7 @@ export function useGenAI() {
               const parsed = JSON.parse(line.slice(6));
               if (parsed.type === "token") {
                 fullText += parsed.content;
+                opts?.onStreamingUpdate?.(fullText);
               } else if (parsed.type === "error") {
                 throw new Error(parsed.message);
               }
@@ -491,6 +498,7 @@ export function useGenAI() {
         });
       }
 
+      opts?.onComplete?.(assistantMessage, rootFrameIdRef.current);
       setIsLoading(false);
       return result;
     } catch (err) {
