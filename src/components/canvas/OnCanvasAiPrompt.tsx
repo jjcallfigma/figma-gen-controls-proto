@@ -32,7 +32,8 @@ import { Icon24ChevronDownLarge } from "../icons/icon-24-chevron-down-large";
 import { Icon24ChevronUpLarge } from "../icons/icon-24-chevron-up-large";
 import { Icon24DockToSide } from "../icons/icon-24-dock-to-side";
 import { Icon24Send } from "../icons/icon-24-send";
-import { isGenAiIntent } from "@/features/gen-ai/utils/intent";
+import { isGenAiIntent, isImageGridIntent, extractImageDataForGrid } from "@/features/gen-ai/utils/intent";
+import { createLocalImageGrid } from "@/features/image-grid/create-local-grid";
 
 type EntrypointState = "loading" | "done" | null;
 
@@ -566,24 +567,36 @@ export default function OnCanvasAiPrompt({
         }),
       );
     } else {
+      // Pure image grid intent → create locally without LLM call
+      if (isImageGridIntent(text) && selectedIds.length >= 2) {
+        const images = extractImageDataForGrid(selectedIds, objects);
+        if (images.length >= 2) {
+          createLocalImageGrid(images);
+          setMessage("");
+          return;
+        }
+      }
+
+      const promptText = text;
+
       // Auto-detect: if the selected object has genAiSpec or message looks like
       // a gen-ai request, route through the gen-ai modify pipeline.
       const singleSelected = selectedIds.length === 1 ? selectedIds[0] : null;
       const selectedObj = singleSelected ? objects[singleSelected] : null;
       const selectedHasGenAi = !!(selectedObj?.genAiSpec);
 
-      if (selectedHasGenAi || isGenAiIntent(text)) {
+      if (selectedHasGenAi || isGenAiIntent(promptText)) {
         const frameId = singleSelected ?? selectionFingerprint;
         window.dispatchEvent(
           new CustomEvent("gen-ai-modify-send", {
-            detail: { message: text, frameId },
+            detail: { message: promptText, frameId, displayMessage: text },
           }),
         );
       } else {
         window.dispatchEvent(
           new CustomEvent("ai-mini-prompt-send", {
             detail: {
-              message: text,
+              message: promptText,
               fingerprint: selectionFingerprint,
               sessionId: effectiveSessionId ?? undefined,
             },

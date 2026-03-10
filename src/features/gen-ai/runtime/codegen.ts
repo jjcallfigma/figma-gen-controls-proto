@@ -1,4 +1,5 @@
 import type { ActionDescriptor } from '../types';
+import type { CanvasObject, ImageFill } from '@/types/canvas';
 import chroma from 'chroma-js';
 import { createNoise2D, createNoise3D, createNoise4D } from 'simplex-noise';
 import BezierEasing from 'bezier-easing';
@@ -2065,6 +2066,62 @@ export function setSelectionId(id: string | null): void {
 
 export type GeneratorLib = typeof generatorLib;
 
+// ─── Image URL placeholder resolution ─────────────────────────────────────────
+
+/**
+ * Collects image URLs from a frame's descendant fills, ordered by tree traversal.
+ * Returns a map of __IMG_N__ → real URL. Used to resolve placeholders in
+ * generator strings so that genAiSpec stays small (no base64 bloat).
+ */
+export function collectImageUrlsFromFrame(
+  frameId: string,
+  objects: Record<string, CanvasObject>,
+): Record<string, string> {
+  const urls: string[] = [];
+  const frame = objects[frameId];
+  if (!frame) return {};
+
+  function walkChildren(parentId: string): void {
+    const parent = objects[parentId];
+    if (!parent?.childIds) return;
+    for (const cid of parent.childIds) {
+      const child = objects[cid];
+      if (!child) continue;
+      const imgFill = child.fills?.find(
+        (f): f is ImageFill => f.type === 'image' && f.visible !== false,
+      );
+      if (imgFill?.imageUrl) {
+        urls.push(imgFill.imageUrl);
+      }
+      if (child.childIds?.length) {
+        walkChildren(cid);
+      }
+    }
+  }
+
+  walkChildren(frameId);
+
+  const map: Record<string, string> = {};
+  for (let i = 0; i < urls.length; i++) {
+    map[`__IMG_${i}__`] = urls[i];
+  }
+  return map;
+}
+
+/**
+ * Replaces __IMG_N__ placeholders in a generate string with real URLs.
+ */
+export function resolveImagePlaceholders(
+  code: string,
+  urlMap: Record<string, string>,
+): string {
+  let resolved = code;
+  for (const [placeholder, realUrl] of Object.entries(urlMap)) {
+    resolved = resolved.split(placeholder).join(realUrl);
+  }
+  return resolved;
+}
+
 // ─── Compiler ─────────────────────────────────────────────────────────────────
 
 type GeneratorFn = (params: Record<string, unknown>, lib: GeneratorLib) => ActionDescriptor[];
@@ -2073,9 +2130,22 @@ type GeneratorFn = (params: Record<string, unknown>, lib: GeneratorLib) => Actio
  * Compiles an LLM-generated JS function body string into a callable function.
  * The generated code receives two arguments: `params` (control values) and
  * `lib` (helper utilities like hslToRgb, randomColor, etc.).
+ *
+ * If frameId and objects are provided, __IMG_N__ placeholders in the code
+ * are resolved from the frame's descendant image fills before compilation.
  */
-export function compileGenerator(code: string): GeneratorFn {
+export function compileGenerator(
+  code: string,
+  frameId?: string,
+  objects?: Record<string, CanvasObject>,
+): GeneratorFn {
   let body = code.trim();
+
+  // Resolve __IMG_N__ placeholders from canvas if a frame context is provided
+  if (frameId && objects && /__IMG_\d+__/.test(body)) {
+    const urlMap = collectImageUrlsFromFrame(frameId, objects);
+    body = resolveImagePlaceholders(body, urlMap);
+  }
 
   // If the LLM wrapped it in `function generate(params, lib) { ... }`,
   // extract just the body.

@@ -8,6 +8,7 @@ import type {
   Fill,
   SolidFill,
   LinearGradientFill,
+  ImageFill,
   Stroke,
   SolidStroke,
   Effect,
@@ -105,6 +106,18 @@ export function pluginFillToClone(paint: PluginPaint): Fill {
       opacity: p.opacity ?? 1,
       visible: true,
     } as LinearGradientFill;
+  }
+
+  if (paint.type === "IMAGE") {
+    const p = paint as Record<string, unknown>;
+    return {
+      id: nanoid(),
+      type: "image",
+      imageUrl: (p.imageUrl ?? p.imageURL ?? "") as string,
+      fit: ((p.scaleMode as string)?.toLowerCase() === "tile" ? "tile" : "fill") as ImageFill["fit"],
+      opacity: typeof p.opacity === "number" ? p.opacity : 1,
+      visible: true,
+    } as ImageFill;
   }
 
   // Fallback: transparent solid

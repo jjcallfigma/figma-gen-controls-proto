@@ -17,6 +17,8 @@ import { getPreviewDocument } from "@/core/utils/makePreviewRegistry";
 import { DEFAULT_REACT_CODE } from "@/core/utils/makeUtils";
 import { buildUpdateMakePrompt, serializeDesignTree } from "@/core/utils/designSerializer";
 import { MakeProperties, getDefaultAutoLayoutSizing } from "@/types/canvas";
+import { extractImageDataForGrid } from "@/features/gen-ai/utils/intent";
+import { createLocalImageGrid } from "@/features/image-grid/create-local-grid";
 import { nanoid } from "nanoid";
 import React, { useState } from "react";
 
@@ -84,6 +86,18 @@ export function CanvasContextMenu({ children }: CanvasContextMenuProps) {
     selectedObject.type !== "make" &&
     !!sourceMake &&
     sourceMake.type === "make";
+
+  // Check if 2+ selected objects have image fills (for image grid)
+  // Also checks one level of children (e.g. frame containing a rectangle with an image)
+  const objectsWithImageFills = selectedObjects.filter((obj) => {
+    if (obj.fills?.some((f) => f.type === "image" && f.visible)) return true;
+    for (const childId of obj.childIds ?? []) {
+      const child = objects[childId];
+      if (child?.fills?.some((f) => f.type === "image" && f.visible)) return true;
+    }
+    return false;
+  });
+  const canCreateImageGrid = objectsWithImageFills.length >= 2;
 
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -478,6 +492,21 @@ export function CanvasContextMenu({ children }: CanvasContextMenuProps) {
                 <ContextMenuSeparator />
                 <ContextMenuItem onClick={handleUpdateMake}>
                   Update Make from Design
+                </ContextMenuItem>
+              </>
+            )}
+
+            {canCreateImageGrid && (
+              <>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  onClick={() => {
+                    const images = extractImageDataForGrid(selectedIds, objects);
+                    if (images.length < 2) return;
+                    createLocalImageGrid(images);
+                  }}
+                >
+                  Create Image Grid
                 </ContextMenuItem>
               </>
             )}

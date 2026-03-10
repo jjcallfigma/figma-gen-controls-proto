@@ -20,6 +20,7 @@ import {
   MODULE_GENERATOR_RULES,
   MODULE_EXAMPLES,
   MODULE_COMPUTATIONAL,
+  MODULE_IMAGE_GRID,
 } from './prompt-modules';
 import type { SelectionContext, UISpec } from '../types';
 
@@ -57,7 +58,7 @@ const MODULE_KEYWORD_MAP: ModuleKeywords[] = [
   { module: 'noise',     keywords: /\b(noise|organic|procedural|perlin|simplex|turbulence|natural|random.*pattern)\b/i },
   { module: 'easing',    keywords: /\b(easing|ease|bezier|curve.*editor|falloff|distribution|progression|taper)\b/i },
   { module: 'delaunay',  keywords: /\b(voronoi|delaunay|triangulat|mosaic|stained.?glass|tessellat)\b/i },
-  { module: 'image',     keywords: /\b(halftone|dither|posterize|pixel|image|photo|bitmap|blur.*image|sharpen|vignette|glitch|mosaic|ascii.*art|color.*extract|quantiz)\b/i },
+  { module: 'image',     keywords: /\b(halftone|dither|posterize|pixel.*art|bitmap|blur.*image|sharpen|vignette|glitch|ascii.*art|color.*extract|quantiz|image.*process|image.*effect|image.*filter)\b/i },
   { module: 'canvas',    keywords: /\b(renderCanvas|tile|seamless|repeating.*pattern|pattern.*fill.*canvas)\b/i },
   { module: 'rd',        keywords: /\b(turing|reaction.?diffusion|gray.?scott|morphogenesis|biological.*pattern|organic.*spots|organic.*stripes|labyrinth|coral.*pattern|fingerprint.*pattern)\b/i },
   { module: '3d',        keywords: /\b(3d|sphere|cube|torus|wireframe|rotate3d|project3d|mesh|vertices|faces|perspective|along.*path|follow.*path|on.*path|distribute.*along|samplePath|pathBounds|vector.*path)\b/i },
@@ -68,9 +69,10 @@ const MODULE_KEYWORD_MAP: ModuleKeywords[] = [
   { module: 'rough',     keywords: /\b(rough|sketch|hand.?drawn|whiteboard|doodle|hachure)\b/i },
   { module: 'pattern',   keywords: /\b(pattern.*fill|applyPattern|tile.*pattern|patternize|hexagonal.*tile)\b/i },
   { module: 'computational', keywords: /\b(circle.*pack|pack.*circle|attractor|clifford|dejong|lorenz|metaball|blob.*merge|lava.*lamp|dla|diffusion.*aggregat|coral.*growth|frost|lightning.*branch|crystal.*growth|cellular.*automat|game.*of.*life|wolfram|rule.*30|rule.*90|rule.*110|conway|wfc|wave.*function.*collapse|truchet|tile.*generation|constraint.*tile|generative.*art|computational.*design)\b/i },
+  { module: 'imagegrid', keywords: /\b(image|photo|picture)\s*(grid|collage|layout|mosaic|montage)\b|\bgrid\b.*\b(image|photo|picture|these)s?\b|\b(image|photo|picture)s?\b.*\b(grid|in\s+a\s+grid)\b|\b(create|make|build|arrange|lay\s*out)\b.*\b(grid|collage|mosaic)\b/i },
 ];
 
-const GENERATOR_KEYWORDS = /\b(grid|pattern|dots|circle|generate|create.*\d|layout|arrange|distribute|carousel|randomize|gradient|spiral|animate|scatter|wavy|noise|organic|palette|color.*scale|saturate|desaturate|darken|lighten|hue.*shift|3d|sphere|cube|fractal|tree|qr|halftone|dither|posterize|flow.*field|chart|voronoi|rough|sketch|mosaic|superformula|blob|along.*path|follow.*path|on.*path|along.*line|along.*curve|turing|reaction.?diffusion|gray.?scott|morphogenesis|circle.*pack|pack.*circle|attractor|clifford|dejong|metaball|lava.*lamp|dla|diffusion.*aggregat|coral.*growth|frost|lightning.*branch|cellular.*automat|game.*of.*life|wolfram|conway|wfc|wave.*function.*collapse|truchet|generative.*art|computational.*design)\b/i;
+const GENERATOR_KEYWORDS = /\b(grid|pattern|dots|circle|generate|create.*\d|layout|arrange|distribute|carousel|randomize|gradient|spiral|animate|scatter|wavy|noise|organic|palette|color.*scale|saturate|desaturate|darken|lighten|hue.*shift|3d|sphere|cube|fractal|tree|qr|halftone|dither|posterize|flow.*field|chart|voronoi|rough|sketch|mosaic|superformula|blob|along.*path|follow.*path|on.*path|along.*line|along.*curve|turing|reaction.?diffusion|gray.?scott|morphogenesis|circle.*pack|pack.*circle|attractor|clifford|dejong|metaball|lava.*lamp|dla|diffusion.*aggregat|coral.*growth|frost|lightning.*branch|cellular.*automat|game.*of.*life|wolfram|conway|wfc|wave.*function.*collapse|truchet|generative.*art|computational.*design|image.*grid|photo.*grid|collage|image.*layout)\b/i;
 
 function selectModules(
   userMessage: string,
@@ -118,9 +120,16 @@ function selectModules(
   if (matched['rough'])     parts.push(MODULE_ROUGH);
   if (matched['pattern'])   parts.push(MODULE_PATTERN);
   if (matched['computational']) parts.push(MODULE_COMPUTATIONAL);
+  if (matched['imagegrid'])     parts.push(MODULE_IMAGE_GRID);
 
   if (needsGenerator) {
-    parts.push(MODULE_EXAMPLES);
+    // Skip bulky examples when only an image grid follow-up is needed —
+    // MODULE_IMAGE_GRID already has its own example.
+    const onlyImageGrid = matched['imagegrid'] &&
+      Object.keys(matched).filter(k => k !== 'imagegrid' && k !== 'chroma').length === 0;
+    if (!onlyImageGrid) {
+      parts.push(MODULE_EXAMPLES);
+    }
     parts.push(MODULE_GENERATOR_RULES);
   }
 
@@ -150,6 +159,24 @@ function summariseAssistantMessage(content: string): string {
       if (msg) parts.push(msg);
       if (controlCount > 0) parts.push(`[generated plugin with ${controlCount} control${controlCount > 1 ? 's' : ''}${hasGen ? ', generator' : ''}]`);
       return parts.join(' ') || '[generated plugin response]';
+    }
+  } catch { /* not JSON — keep as-is */ }
+  return content;
+}
+
+/**
+ * Strips the (potentially huge) generate string from a recent assistant
+ * message to keep token usage manageable. Preserves the rest of the JSON.
+ */
+function stripGenerateFromAssistantMessage(content: string): string {
+  try {
+    let raw = content.trim();
+    const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) raw = fenceMatch[1].trim();
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && typeof parsed.generate === 'string') {
+      parsed.generate = '[generator — omitted]';
+      return JSON.stringify(parsed);
     }
   } catch { /* not JSON — keep as-is */ }
   return content;
@@ -191,7 +218,7 @@ function prepareHistory(chatHistory: ChatMessage[]): ApiChatMessage[] {
     if (pair.assistant) {
       const content = isOld
         ? summariseAssistantMessage(pair.assistant.content)
-        : pair.assistant.content;
+        : stripGenerateFromAssistantMessage(pair.assistant.content);
       result.push({ role: 'assistant', content });
     }
   }
@@ -253,9 +280,16 @@ export function composePrompt(
   }
 
   if (currentUISpec) {
+    // Strip the generate string from the spec to avoid sending huge code blocks
+    // (including embedded LAYOUTS JSON) to the LLM. The LLM only needs the
+    // controls list to understand the current state for follow-up modifications.
+    const specForPrompt = { ...currentUISpec };
+    if (specForPrompt.generate) {
+      specForPrompt.generate = '[generator function — omitted for brevity]';
+    }
     preambleParts.push(
       '## Current control panel spec (may be refined by this turn)\n```json\n' +
-      JSON.stringify(currentUISpec) +
+      JSON.stringify(specForPrompt) +
       '\n```',
     );
   }

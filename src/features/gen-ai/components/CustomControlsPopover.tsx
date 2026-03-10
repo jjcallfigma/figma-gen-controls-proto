@@ -287,7 +287,8 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
         rerunTimeoutRef.current = setTimeout(() => {
           try {
             if (spec.generate) {
-              const fn = compileGenerator(spec.generate);
+              const storeObjects = useAppStore.getState().objects;
+              const fn = compileGenerator(spec.generate, frameId, storeObjects);
               const params = flattenColorStops(next);
               const generated = executeGenerator(fn, params);
 

@@ -361,7 +361,8 @@ export function useGenAI() {
         timestamp: Date.now(),
       });
 
-      // Merge UI spec
+      // Merge UI spec — __IMG_N__ placeholders stay in the generate string.
+      // They are resolved at compile-time from the canvas frame's children.
       const normalizedUi: UISpec = {
         ...(ui as UISpec),
         generate: generate ?? (ui as UISpec).generate,
@@ -445,7 +446,8 @@ export function useGenAI() {
         }
 
         const controlValues = flattenColorStops(rawValues);
-        const fn = compileGenerator(mergedUi.generate);
+        const storeObjects = useAppStore.getState().objects;
+        const fn = compileGenerator(mergedUi.generate, existingFrameId, storeObjects);
         let generated = executeGenerator(fn, controlValues);
         usedControlValues = rawValues;
 
@@ -569,7 +571,8 @@ export function useGenAI() {
       if (!frameId) return null;
 
       try {
-        const fn = compileGenerator(spec.generate);
+        const storeObjects = useAppStore.getState().objects;
+        const fn = compileGenerator(spec.generate, frameId, storeObjects);
         const params = flattenColorStops(controlValues);
         let generated = executeGenerator(fn, params);
 

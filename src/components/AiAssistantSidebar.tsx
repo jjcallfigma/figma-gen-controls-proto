@@ -5,7 +5,8 @@ import { useDesignChat } from "@/core/hooks/useDesignChat";
 import { ChatMessage as DesignChatBubble } from "@/components/chat";
 import { useMakeChat } from "@/core/hooks/useMakeChat";
 import { useAppStore, useSelectedObjects } from "@/core/state/store";
-import { isGenAiIntent } from "@/features/gen-ai/utils/intent";
+import { isGenAiIntent, isImageGridIntent, extractImageDataForGrid } from "@/features/gen-ai/utils/intent";
+import { createLocalImageGrid } from "@/features/image-grid/create-local-grid";
 import { renderMarkdown } from "@/core/utils/renderMarkdown";
 import { MakeChatMessage } from "@/types/canvas";
 import React, {
@@ -843,14 +844,14 @@ export default function AiAssistantSidebar({
 
   // Shared helper: run a Gen AI prompt and surface it in the design chat
   const runGenAiWithChat = useCallback(
-    async (promptText: string) => {
+    async (promptText: string, displayText?: string) => {
       const userMsgId = nanoid();
       const activityMsgId = nanoid();
 
       designChat.injectMessage({
         id: userMsgId,
         role: "user",
-        content: promptText,
+        content: displayText ?? promptText,
         timestamp: Date.now(),
       });
 
@@ -880,7 +881,11 @@ export default function AiAssistantSidebar({
   // Listen for gen-ai modify control requests from the on-canvas prompt
   useEffect(() => {
     const handler = async (e: Event) => {
-      const detail = (e as CustomEvent).detail as { message: string; frameId: string } | undefined;
+      const detail = (e as CustomEvent).detail as {
+        message: string;
+        frameId: string;
+        displayMessage?: string;
+      } | undefined;
       if (!detail?.message || !detail?.frameId) return;
 
       const obj = useAppStore.getState().objects[detail.frameId];
@@ -888,7 +893,7 @@ export default function AiAssistantSidebar({
         genAI.restoreFromFrame(detail.frameId, obj.genAiSpec);
       }
 
-      await runGenAiWithChat(detail.message);
+      await runGenAiWithChat(detail.message, detail.displayMessage);
     };
     window.addEventListener("gen-ai-modify-send", handler);
     return () => window.removeEventListener("gen-ai-modify-send", handler);
@@ -928,18 +933,49 @@ export default function AiAssistantSidebar({
       return;
     }
 
-    // If the selected object has genAiSpec, always route through gen-ai
     const selectedIds = useAppStore.getState().selection.selectedIds ?? [];
     const objects = useAppStore.getState().objects;
+
+    // Pure image grid intent → create locally without LLM call
+    if (isImageGridIntent(text) && selectedIds.length >= 2) {
+      const images = extractImageDataForGrid(selectedIds, objects);
+      if (images.length >= 2) {
+        designChat.setMessage("");
+        const gridResult = createLocalImageGrid(images);
+        if (gridResult) {
+          designChat.injectMessage({
+            id: nanoid(),
+            role: "user",
+            content: text,
+            timestamp: Date.now(),
+          });
+          designChat.injectMessage({
+            id: nanoid(),
+            role: "assistant",
+            content: "Image Grid",
+            timestamp: Date.now(),
+            messageType: "make_activity",
+            makeActivityDone: true,
+            genAiFrameId: gridResult.rootFrameId,
+          });
+          genAI.restoreFromFrame(gridResult.rootFrameId, JSON.stringify(gridResult.spec));
+        }
+        return;
+      }
+    }
+
+    let promptText = text;
+
+    // If the selected object has genAiSpec, always route through gen-ai
     const selectedObj = selectedIds.length === 1 ? objects[selectedIds[0]] : null;
     const selectedHasGenAi = !!(selectedObj?.genAiSpec);
 
-    if (selectedHasGenAi || isGenAiIntent(text)) {
+    if (selectedHasGenAi || isGenAiIntent(promptText)) {
       designChat.setMessage("");
       if (selectedHasGenAi) {
         genAI.restoreFromFrame(selectedIds[0], selectedObj!.genAiSpec!);
       }
-      await runGenAiWithChat(text);
+      await runGenAiWithChat(promptText, text);
     } else {
       designChat.handleSend();
     }
