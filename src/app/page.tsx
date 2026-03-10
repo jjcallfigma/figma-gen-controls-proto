@@ -11,6 +11,7 @@ import NavigationBar from "@/components/NavigationBar";
 import InsertSidebar from "@/components/InsertSidebar";
 import SearchSidebar from "@/components/SearchSidebar";
 import AiAssistantSidebar from "@/components/AiAssistantSidebar";
+import DemoControlsPopover from "@/features/gen-ai/demo/DemoControlsPopover";
 import MakeEditorOverlay from "@/components/MakeEditorOverlay";
 import { NavigationProvider, useNavigation } from "@/contexts/NavigationContext";
 import { Agentation } from "agentation";
@@ -57,6 +58,9 @@ function HomePageContent() {
 
       {/* AI Assistant — always mounted so Make chat streams survive tab switches */}
       <AiAssistantSidebar visible={activeTab === 'ai-assistant'} />
+
+      {/* Demo controls popover for /ui slash command */}
+      <DemoControlsPopover />
 
       {/* Make Editor Overlay — fullscreen when editing a Make node */}
       <MakeEditorOverlay />

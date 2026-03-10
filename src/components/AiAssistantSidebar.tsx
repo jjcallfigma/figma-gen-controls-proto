@@ -33,6 +33,7 @@ import { Input } from "./ui/input";
 
 import { deriveTitle, formatRelativeTime } from "@/core/utils/chatUtils";
 import { useGenAI } from "@/features/gen-ai/hooks/useGenAI";
+import { MOCK_CONTROLS, getMockControlKeys } from "@/features/gen-ai/demo/mock-controls";
 
 // ─── Make Chat View ──────────────────────────────────────────────────
 
@@ -856,9 +857,37 @@ export default function AiAssistantSidebar({
       || /\b(generative|procedural|parametric|computational)\b/i.test(lower);
   }, []);
 
+  const handleSlashCommand = useCallback((text: string): boolean => {
+    const cmd = text.toLowerCase().trim();
+
+    if (cmd === "/ui" || cmd.startsWith("/ui ")) {
+      const sub = cmd.slice(3).trim();
+      const entry = MOCK_CONTROLS[sub];
+      if (!entry) {
+        const keys = getMockControlKeys().join(", ");
+        console.warn(`[slash] Unknown: /ui ${sub}. Available: ${keys}`);
+      } else {
+        window.dispatchEvent(
+          new CustomEvent("demo-controls-open", {
+            detail: { spec: entry.spec, label: entry.label },
+          }),
+        );
+      }
+      return true;
+    }
+
+    return false;
+  }, []);
+
   const handleUnifiedSend = useCallback(async () => {
     const text = designChat.message.trim();
     if (!text) return;
+
+    if (text.startsWith("/")) {
+      designChat.setMessage("");
+      handleSlashCommand(text);
+      return;
+    }
 
     // If the selected object has genAiSpec, always route through gen-ai
     const selectedIds = useAppStore.getState().selection.selectedIds ?? [];
@@ -871,7 +900,7 @@ export default function AiAssistantSidebar({
     } else {
       designChat.handleSend();
     }
-  }, [designChat, genAI, isGenAiIntent]);
+  }, [designChat, genAI, isGenAiIntent, handleSlashCommand]);
 
   const handleDesignChatKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {

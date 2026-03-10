@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --color-bg: #ffffff;
   --color-bg-assistive: #ff24bd;
   --color-bg-assistive-hover: #ea10ac;
@@ -808,6 +809,7 @@
 
 [data-theme="dark"],
 .dark {
+  color-scheme: dark;
   --color-bg: #2c2c2c;
   --color-bg-assistive: #ff24bd;
   --color-bg-assistive-hover: #ea10ac;

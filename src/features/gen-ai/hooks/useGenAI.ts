@@ -385,7 +385,7 @@ export function useGenAI() {
       // Rewrite temp IDs in control action templates to real IDs
       if (result.tempIdMap.size > 0 && mergedUi.controls) {
         for (const control of mergedUi.controls) {
-          const act = (control as Record<string, unknown>).action as
+          const act = (control as unknown as Record<string, unknown>).action as
             | { nodeId?: string; args?: Record<string, unknown> }
             | undefined;
           if (act?.nodeId) {

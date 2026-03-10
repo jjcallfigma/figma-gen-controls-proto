@@ -52,6 +52,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     // Also set data attribute for Figma tokens
     root.setAttribute("data-theme", theme);
 
+    // Sync color-scheme so FigUI3's light-dark() CSS function resolves correctly
+    root.style.colorScheme = theme;
+
     // Save to localStorage
     localStorage.setItem("figma-theme", theme);
   }, [theme, mounted]);

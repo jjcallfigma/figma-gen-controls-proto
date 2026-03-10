@@ -14,3 +14,68 @@
  * targeting those custom elements.
  */
 @import "@rogieking/figui3/components.css" layer(figui3);
+
+/*
+ * FigUI3 expects `body { font-size: 0.6875rem }` (11px) from its base.css,
+ * but we don't import base.css globally to avoid clobbering the app.
+ * Instead, scope the correct font-size to any container hosting fig-* controls.
+ *
+ * Input overrides align FigUI3 text/number inputs with the native PropertyInput
+ * component (h-6 = 24px, rounded-[5px], bg-secondary, py-1 px-2, text-[11px]).
+ */
+.figui3-scope {
+  font-size: 0.6875rem;
+  font-weight: 450;
+  letter-spacing: 0.055px;
+}
+
+.figui3-scope input[type="text"],
+.figui3-scope input[type="number"],
+.figui3-scope input[type="password"],
+.figui3-scope textarea,
+.figui3-scope .input {
+  box-sizing: border-box;
+  height: 24px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 16px;
+  background-color: var(--color-bg-secondary);
+  border: 1px solid transparent;
+  color: var(--color-text);
+}
+
+.figui3-scope input[type="text"]:hover,
+.figui3-scope input[type="number"]:hover,
+.figui3-scope input[type="password"]:hover,
+.figui3-scope textarea:hover {
+  border-color: var(--color-border);
+}
+
+.figui3-scope input[type="text"]:focus,
+.figui3-scope input[type="number"]:focus,
+.figui3-scope input[type="password"]:focus,
+.figui3-scope textarea:focus {
+  border-color: var(--color-border-selected);
+  outline: none;
+}
+
+.figui3-scope select {
+  box-sizing: border-box;
+  height: 24px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.figui3-scope fig-slider,
+.figui3-scope fig-input-angle,
+.figui3-scope fig-input-text,
+.figui3-scope fig-input-number,
+.figui3-scope fig-dropdown,
+.figui3-scope fig-switch,
+.figui3-scope fig-segmented-control {
+  width: 100%;
+  min-width: 0;
+}

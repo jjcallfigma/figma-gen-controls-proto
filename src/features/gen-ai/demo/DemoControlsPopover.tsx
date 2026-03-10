@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, type RefObject } from "react";
-import { useAppStore } from "@/core/state/store";
-import type { UISpec, UIControl, ActionDescriptor } from "../types";
-import { compileGenerator, executeGenerator } from "../runtime/codegen";
-import { executeActions } from "../adapter/action-adapter";
-import "./figui3-scoped.css";
+import { useState, useCallback, useEffect } from "react";
+import type { UISpec, UIControl } from "../types";
 import PropertyPopover from "@/components/ui/PropertyPopover";
 import PropertyPopoverHeader from "@/components/ui/PropertyPopoverHeader";
+import "../components/figui3-scoped.css";
 import {
   Slider,
   Toggle,
@@ -22,21 +19,13 @@ import {
   GradientBar,
   CurveEditor,
   CubePreview,
-} from "./controls";
+} from "../components/controls";
 
 if (typeof window !== "undefined") {
   import("@rogieking/figui3");
 }
 
-interface Props {
-  spec: UISpec;
-  frameId: string;
-  isOpen: boolean;
-  position: { x: number; y: number };
-  onPositionChange: (position: { x: number; y: number }) => void;
-  protectedZoneRef?: RefObject<HTMLElement | null>;
-  onClose: () => void;
-}
+const POPOVER_WIDTH = 240;
 
 const FULL_WIDTH_TYPES = new Set(["3d-preview", "curve", "gradient-bar", "xy-pad", "range"]);
 
@@ -110,190 +99,66 @@ function getDefaultValue(control: UIControl): unknown {
   }
 }
 
-function flattenColorStops(params: Record<string, unknown>): Record<string, unknown> {
-  return { ...params };
-}
+export default function DemoControlsPopover() {
+  const [spec, setSpec] = useState<UISpec | null>(null);
+  const [title, setTitle] = useState("Controls");
+  const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [values, setValues] = useState<Record<string, unknown>>({});
 
-export function CustomControlsPopover({ spec, frameId, isOpen, position, onPositionChange, protectedZoneRef, onClose }: Props) {
-  const [values, setValues] = useState<Record<string, unknown>>(() => {
-    const defaults: Record<string, unknown> = {};
-    for (const c of spec.controls) {
-      defaults[c.id] = getDefaultValue(c);
-    }
-    return defaults;
-  });
-
-  const rerunTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Sync values when spec controls change (e.g. new control added via modify)
   useEffect(() => {
-    setValues((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const c of spec.controls) {
-        if (!(c.id in next)) {
-          next[c.id] = getDefaultValue(c);
-          changed = true;
-        }
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ spec: UISpec; label: string }>).detail;
+      setSpec(detail.spec);
+      setTitle(detail.label);
+      setIsOpen(true);
+
+      const x = window.innerWidth - 260 - POPOVER_WIDTH - 16;
+      const y = 80;
+      setPosition({ x, y });
+
+      const defaults: Record<string, unknown> = {};
+      for (const c of detail.spec.controls) {
+        defaults[c.id] = getDefaultValue(c);
       }
-      return changed ? next : prev;
-    });
-  }, [spec]);
-
-  const handleControlChange = useCallback(
-    (controlId: string, value: unknown) => {
-      setValues((prev) => {
-        const next = { ...prev, [controlId]: value };
-
-        if (rerunTimeoutRef.current) {
-          clearTimeout(rerunTimeoutRef.current);
-        }
-
-        rerunTimeoutRef.current = setTimeout(() => {
-          try {
-            // When a generator exists, always re-run it so all control
-            // values stay coherent (avoids one control's direct dispatch
-            // being overwritten by the next control's generator re-run).
-            if (spec.generate) {
-              const fn = compileGenerator(spec.generate);
-              const params = flattenColorStops(next);
-              const generated = executeGenerator(fn, params);
-
-              const rootIdx = generated.findIndex(
-                (a: ActionDescriptor) => a.method === "createFrame" && !a.parentId,
-              );
-
-              const finalActions: ActionDescriptor[] = [];
-
-              if (rootIdx !== -1) {
-                const rootAction = generated[rootIdx];
-                const rootTempId = rootAction.tempId;
-
-                if (
-                  typeof rootAction.args?.width === "number" &&
-                  typeof rootAction.args?.height === "number"
-                ) {
-                  finalActions.push({
-                    method: "resize",
-                    nodeId: frameId,
-                    args: {
-                      width: rootAction.args.width as number,
-                      height: rootAction.args.height as number,
-                    },
-                  });
-                }
-
-                finalActions.push({
-                  method: "deleteChildren",
-                  nodeId: frameId,
-                  args: {},
-                });
-
-                for (let i = 0; i < generated.length; i++) {
-                  if (i === rootIdx) continue;
-                  const action = { ...generated[i], args: { ...generated[i].args } };
-                  if (action.parentId === rootTempId) action.parentId = frameId;
-                  if (action.nodeId === rootTempId) action.nodeId = frameId;
-                  if (action.args?.targetNodeId === rootTempId || action.args?.targetNodeId === "root") {
-                    action.args.targetNodeId = frameId;
-                  }
-                  finalActions.push(action);
-                }
-              } else {
-                // No createFrame: remap any temp nodeId references to the
-                // root object so setFill/setStroke/etc. hit the real object.
-                for (const action of generated) {
-                  const a = { ...action, args: { ...action.args } };
-                  if (a.nodeId && !useAppStore.getState().objects[a.nodeId]) {
-                    a.nodeId = frameId;
-                  }
-                  finalActions.push(a);
-                }
-              }
-
-              executeActions(finalActions);
-            } else {
-              // Fallback: no generator, use action templates for direct dispatch
-              const control = spec.controls.find((c) => c.id === controlId);
-              const actionTemplate = (control as Record<string, unknown> | undefined)?.action as
-                | { method: string; nodeId?: string; args?: Record<string, unknown> }
-                | undefined;
-
-              if (actionTemplate) {
-                const action: ActionDescriptor = {
-                  method: actionTemplate.method,
-                  nodeId: actionTemplate.nodeId ?? frameId,
-                  args: { ...actionTemplate.args, value },
-                };
-
-                if (action.method === "resize" && action.args?.property) {
-                  const prop = action.args.property as string;
-                  delete action.args.property;
-                  action.args[prop] = value;
-                }
-
-                executeActions([action]);
-              }
-            }
-          } catch (err) {
-            console.error("[gen-ai] Control re-run error:", err);
-          }
-        }, 50);
-
-        return next;
-      });
-    },
-    [spec, frameId],
-  );
-
-  // Clean up timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (rerunTimeoutRef.current) clearTimeout(rerunTimeoutRef.current);
+      setValues(defaults);
     };
+
+    window.addEventListener("demo-controls-open", handler);
+    return () => window.removeEventListener("demo-controls-open", handler);
   }, []);
 
-  const handleModifyControls = useCallback(() => {
-    window.dispatchEvent(
-      new CustomEvent("gen-ai-open-modify", {
-        detail: { frameId },
-      }),
-    );
-  }, [frameId]);
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+    setSpec(null);
+  }, []);
+
+  const handleChange = useCallback((controlId: string, value: unknown) => {
+    setValues((prev) => ({ ...prev, [controlId]: value }));
+  }, []);
+
+  if (!spec) return null;
 
   return (
     <PropertyPopover
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       position={position}
-      onPositionChange={onPositionChange}
-      width={240}
-      protectedZoneRef={protectedZoneRef}
+      onPositionChange={setPosition}
+      width={POPOVER_WIDTH}
     >
-      <PropertyPopoverHeader title="Controls" onClose={onClose} />
+      <PropertyPopoverHeader title={title} onClose={handleClose} />
 
-      {/* Controls */}
-      <div className="figui3-scope overflow-y-auto overflow-x-hidden py-2" style={{ maxHeight: 400 }}>
+      <div className="figui3-scope overflow-y-auto overflow-x-hidden py-2" style={{ maxHeight: 500 }}>
         <div className="flex flex-col">
           {spec.controls.map((control) => (
             <FieldRow key={control.id} label={control.label || control.id} fullWidth={FULL_WIDTH_TYPES.has(control.type)}>
               {renderControl(control, values[control.id] ?? getDefaultValue(control), (val) =>
-                handleControlChange(control.id, val),
+                handleChange(control.id, val),
               )}
             </FieldRow>
           ))}
         </div>
-      </div>
-
-      {/* Modify controls link */}
-      <div className="px-3 py-2 flex justify-center border-t">
-        <button
-          onClick={handleModifyControls}
-          className="text-[11px] font-medium hover:underline"
-          style={{ color: "var(--color-text-brand, #7B61FF)", cursor: "pointer" }}
-        >
-          Modify controls
-        </button>
       </div>
     </PropertyPopover>
   );
@@ -319,7 +184,6 @@ function renderControl(
           step={props.step as number ?? 1}
         />
       );
-
     case "toggle":
       return (
         <Toggle
@@ -328,7 +192,6 @@ function renderControl(
           onChange={onChange as (v: boolean) => void}
         />
       );
-
     case "select":
       return (
         <Select
@@ -338,7 +201,6 @@ function renderControl(
           options={props.options as string[]}
         />
       );
-
     case "color":
       return (
         <ColorSwatch
@@ -348,7 +210,6 @@ function renderControl(
           colors={props.colors as { id: string; label: string; defaultValue?: string }[]}
         />
       );
-
     case "text":
       return (
         <TextInput
@@ -358,7 +219,6 @@ function renderControl(
           placeholder={props.placeholder as string}
         />
       );
-
     case "number":
       return (
         <NumberInput
@@ -370,7 +230,6 @@ function renderControl(
           step={props.step as number ?? 1}
         />
       );
-
     case "segmented":
       return (
         <SegmentedControl
@@ -379,7 +238,6 @@ function renderControl(
           options={props.options as { value: string; label: string }[]}
         />
       );
-
     case "dial":
       return (
         <AngleWheel
@@ -391,7 +249,6 @@ function renderControl(
           step={props.step as number ?? 1}
         />
       );
-
     case "xy-pad":
       return (
         <XYPad
@@ -406,7 +263,6 @@ function renderControl(
           stepY={props.stepY as number ?? 1}
         />
       );
-
     case "range":
       return (
         <RangeSlider
@@ -418,7 +274,6 @@ function renderControl(
           step={props.step as number ?? 1}
         />
       );
-
     case "gradient-bar":
       return (
         <GradientBar
@@ -427,7 +282,6 @@ function renderControl(
           onChange={onChange as (v: { id: string; position: number; color: string }[]) => void}
         />
       );
-
     case "curve":
       return (
         <CurveEditor
@@ -436,7 +290,6 @@ function renderControl(
           onChange={onChange as (v: [number, number, number, number]) => void}
         />
       );
-
     case "3d-preview": {
       const v3d = value as { rx: number; ry: number; rz?: number };
       return (
@@ -448,7 +301,6 @@ function renderControl(
         />
       );
     }
-
     default:
       return (
         <div className="text-[11px]" style={{ color: "var(--color-text-secondary)" }}>

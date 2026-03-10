@@ -57,26 +57,31 @@ export function FigRange({ value, onChange, min = 0, max = 100, step = 1 }: FigR
   }, [value.low, value.high]);
 
   return (
-    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-      <fig-slider
-        ref={lowRef}
-        value={String(value.low)}
-        min={String(min)}
-        max={String(max)}
-        step={String(step)}
-        text="true"
-        style={{ flex: 1 }}
-      />
-      <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>–</span>
-      <fig-slider
-        ref={highRef}
-        value={String(value.high)}
-        min={String(min)}
-        max={String(max)}
-        step={String(step)}
-        text="true"
-        style={{ flex: 1 }}
-      />
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 11, color: "var(--color-text-secondary)", width: 24, flexShrink: 0 }}>Min</span>
+        <fig-slider
+          ref={lowRef}
+          value={String(value.low)}
+          min={String(min)}
+          max={String(max)}
+          step={String(step)}
+          text="true"
+          style={{ flex: 1 }}
+        />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 11, color: "var(--color-text-secondary)", width: 24, flexShrink: 0 }}>Max</span>
+        <fig-slider
+          ref={highRef}
+          value={String(value.high)}
+          min={String(min)}
+          max={String(max)}
+          step={String(step)}
+          text="true"
+          style={{ flex: 1 }}
+        />
+      </div>
     </div>
   );
 }
