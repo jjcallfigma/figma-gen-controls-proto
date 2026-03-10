@@ -1,0 +1,68 @@
+/*
+ * FigUI3 component styles, scoped to prevent leaking into the clone's UI.
+ *
+ * components.css contains :root variables (safe, all --figma-* namespaced)
+ * and fig-* web component styles (safe, tag-scoped). But it also has bare
+ * element selectors (button, input, select, textarea, fieldset) that
+ * override the clone's native controls. We neutralise those here.
+ */
+@import "@rogieking/figui3/components.css";
+
+/* ── Undo bare element resets from components.css ────────────────────── */
+
+/* These selectors must be at least as specific as the ones in
+   components.css to win the cascade.  We use :where() around the
+   negation to keep specificity identical to the originals. */
+
+button:not(fig-button *):not([is="fig-button"]),
+select:not(fig-dropdown *):not(fig-easing-curve *),
+input:not([is^="fig"]):not(fig-input-text *):not(fig-input-number *):not(fig-input-color *):not(fig-input-angle *):not(fig-input-joystick *):not(fig-slider *):not(fig-easing-curve *):not(fig-3d-rotate *):not(fig-combo-input *):not(fig-fill-picker *):not(fig-input-fill *),
+fieldset:not(fig-field *),
+textarea:not(fig-input-text *) {
+  display: revert;
+  align-items: revert;
+  margin: revert;
+  gap: revert;
+  font: revert;
+  line-height: revert;
+}
+
+input[type="text"]:not(fig-input-text *):not(fig-combo-input *):not(fig-easing-curve *):not(fig-3d-rotate *),
+input[type="number"]:not(fig-input-number *):not(fig-slider *):not(fig-easing-curve *):not(fig-3d-rotate *),
+input[type="password"]:not(fig-input-text *) {
+  background-color: revert;
+  border: revert;
+  border-radius: revert;
+  padding: revert;
+  line-height: revert !important;
+  box-sizing: revert;
+  resize: revert;
+  min-width: revert;
+  font: revert;
+  display: revert;
+  color: revert;
+  -moz-appearance: revert;
+}
+
+select:not(fig-dropdown *):not(fig-easing-curve *),
+input[type="text"][list]:not(fig-combo-input *) {
+  height: revert;
+  padding: revert;
+  border-radius: revert;
+  display: revert;
+  appearance: revert;
+  align-items: revert;
+  flex: revert;
+  border: revert;
+  color: revert;
+  background-color: revert;
+  box-shadow: revert;
+  accent-color: revert;
+  overflow: revert;
+  white-space: revert;
+  text-overflow: revert;
+}
+
+input[type="color"]:not(fig-input-color *) {
+  all: revert;
+}
