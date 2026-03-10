@@ -291,15 +291,25 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
               const params = flattenColorStops(next);
               const generated = executeGenerator(fn, params);
 
-              const rootIdx = generated.findIndex(
+              let rootIdx = generated.findIndex(
                 (a: ActionDescriptor) => a.method === "createFrame" && !a.parentId,
               );
+
+              // Fallback: treat any root create* as the root object
+              if (rootIdx === -1) {
+                rootIdx = generated.findIndex(
+                  (a: ActionDescriptor) => a.method.startsWith("create") && !a.parentId,
+                );
+              }
 
               const finalActions: ActionDescriptor[] = [];
 
               if (rootIdx !== -1) {
                 const rootAction = generated[rootIdx];
                 const rootTempId = rootAction.tempId;
+                const hasChildren = generated.some(
+                  (a, i) => i !== rootIdx && a.parentId === rootTempId,
+                );
 
                 if (
                   typeof rootAction.args?.width === "number" &&
@@ -315,11 +325,21 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
                   });
                 }
 
-                finalActions.push({
-                  method: "deleteChildren",
-                  nodeId: frameId,
-                  args: {},
-                });
+                if (!hasChildren && rootAction.args?.cornerRadius != null) {
+                  finalActions.push({
+                    method: "setCornerRadius",
+                    nodeId: frameId,
+                    args: { radius: rootAction.args.cornerRadius as number },
+                  });
+                }
+
+                if (hasChildren) {
+                  finalActions.push({
+                    method: "deleteChildren",
+                    nodeId: frameId,
+                    args: {},
+                  });
+                }
 
                 for (let i = 0; i < generated.length; i++) {
                   if (i === rootIdx) continue;

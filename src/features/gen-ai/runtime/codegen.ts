@@ -456,6 +456,47 @@ function pointsToSvgPath(points: Point2D[], closed = true): string {
   return parts.join(' ');
 }
 
+function meshToEdges(mesh: Mesh3D): [number, number][] {
+  const seen = new Set<string>();
+  const edges: [number, number][] = [];
+  for (const face of mesh.faces) {
+    for (let i = 0; i < face.length; i++) {
+      const a = face[i];
+      const b = face[(i + 1) % face.length];
+      const key = a < b ? `${a}:${b}` : `${b}:${a}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        edges.push([a, b]);
+      }
+    }
+  }
+  return edges;
+}
+
+function meshToSinglePath(
+  mesh: Mesh3D,
+  rx: number,
+  ry: number,
+  rz: number,
+  focalLength: number,
+  cx: number,
+  cy: number,
+): string {
+  const rotated = mesh.vertices.map(v => rotate3D(v, rx, ry, rz));
+  const projected = rotated.map(v => project3D(v, focalLength));
+  const edges = meshToEdges(mesh);
+  const parts: string[] = [];
+  for (const [a, b] of edges) {
+    const pa = projected[a];
+    const pb = projected[b];
+    if (!isFinite(pa.x) || !isFinite(pa.y) || !isFinite(pb.x) || !isFinite(pb.y)) continue;
+    parts.push(
+      `M ${(cx + pa.x).toFixed(3)} ${(cy + pa.y).toFixed(3)} L ${(cx + pb.x).toFixed(3)} ${(cy + pb.y).toFixed(3)}`
+    );
+  }
+  return parts.join(' ');
+}
+
 // ─── SVG path sampling ────────────────────────────────────────────────────────
 
 interface PathSample { x: number; y: number; angle: number }
@@ -1860,6 +1901,8 @@ const generatorLib = {
   sphere: (radius: number, segments?: number) => make3DSphere(radius, segments),
   torus: (major: number, minor: number, segments?: number) => make3DTorus(major, minor, segments),
   pointsToSvgPath,
+  meshToEdges,
+  meshToSinglePath,
 
   // --- SVG path sampling ---
   samplePath,

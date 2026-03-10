@@ -1,8 +1,7 @@
 import type { UISpec, UIControl } from "../types";
 
 const fullControls: UIControl[] = [
-  { id: "dial-a", type: "dial", label: "Rotation X", props: { min: -180, max: 180, step: 1, defaultValue: 0 } },
-  { id: "dial-b", type: "dial", label: "Rotation Y", props: { min: -180, max: 180, step: 1, defaultValue: 34 } },
+  { id: "rotation-3d", type: "3d-preview", label: "3D Rotation", props: { defaultValue: { rx: 0, ry: 34, rz: 0 } } },
   { id: "slider-opacity", type: "slider", label: "Opacity", props: { min: 0, max: 100, step: 1, defaultValue: 73 } },
   { id: "slider-blur", type: "slider", label: "Blur", props: { min: 0, max: 50, step: 0.5, defaultValue: 4 } },
   { id: "range-size", type: "range", label: "Size Range", props: { min: 4, max: 48, step: 1, defaultValue: { low: 8, high: 24 } } },
@@ -46,11 +45,9 @@ export const MOCK_CONTROLS: Record<string, { label: string; spec: UISpec }> = {
     label: "3D Cube",
     spec: {
       mode: "apply",
-      generate: "const rx = params.rx ?? 0; const ry = params.ry ?? 0; const rz = params.rz ?? 0; return [];",
+      generate: "const rot = params.rotation || { rx: 0, ry: 0, rz: 0 }; return [];",
       controls: [
-        { id: "rx", type: "dial", label: "Rotate X", props: { min: -180, max: 180, step: 1, defaultValue: 25 } },
-        { id: "ry", type: "dial", label: "Rotate Y", props: { min: -180, max: 180, step: 1, defaultValue: -35 } },
-        { id: "rz", type: "dial", label: "Rotate Z", props: { min: -180, max: 180, step: 1, defaultValue: 0 } },
+        { id: "rotation", type: "3d-preview", label: "3D Rotation", props: { defaultValue: { rx: 25, ry: -35, rz: 0 } } },
         { id: "scale", type: "slider", label: "Scale", props: { min: 0.1, max: 3, step: 0.1, defaultValue: 1 } },
       ],
     },

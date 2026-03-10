@@ -60,6 +60,10 @@ function getControlDefaultValue(control: UIControl): unknown {
       const dv = Array.isArray(props.defaultValue) ? props.defaultValue as number[] : null;
       return dv ?? [0.25, 0.1, 0.25, 1.0];
     }
+    case '3d-preview': {
+      const dv = props.defaultValue as { rx?: number; ry?: number; rz?: number } | undefined;
+      return { rx: dv?.rx ?? 0, ry: dv?.ry ?? 0, rz: dv?.rz ?? 0 };
+    }
     case 'button':
       return null;
     default:

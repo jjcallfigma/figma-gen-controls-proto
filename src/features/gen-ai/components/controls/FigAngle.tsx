@@ -16,6 +16,8 @@ export function FigAngle({ value, onChange, min = -180, max = 180 }: FigAnglePro
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
+  const safeValue = typeof value === "number" && isFinite(value) ? value : 0;
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -29,13 +31,13 @@ export function FigAngle({ value, onChange, min = -180, max = 180 }: FigAnglePro
 
   useEffect(() => {
     const el = ref.current;
-    if (el) el.setAttribute("value", String(value));
-  }, [value]);
+    if (el) el.setAttribute("value", String(safeValue));
+  }, [safeValue]);
 
   return (
     <fig-input-angle
       ref={ref}
-      value={String(value)}
+      value={String(safeValue)}
       min={String(min)}
       max={String(max)}
       text="true"

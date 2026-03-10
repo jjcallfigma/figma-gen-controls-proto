@@ -104,7 +104,7 @@ function buildBaseObject(
 function frameProperties(args: Args) {
   const props: Record<string, unknown> = {
     type: "frame",
-    overflow: (args.clipsContent === false) ? "visible" : "hidden",
+    overflow: (args.clipsContent === false || args.clipContent === false) ? "visible" : "hidden",
   };
   if (args.layoutMode && args.layoutMode !== "NONE") {
     props.autoLayout = {

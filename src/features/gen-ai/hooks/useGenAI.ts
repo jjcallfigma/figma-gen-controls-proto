@@ -67,13 +67,24 @@ function rewriteActionsForReapply(
   generated: ActionDescriptor[],
   existingFrameId: string,
 ): ActionDescriptor[] {
-  const rootIdx = generated.findIndex(
+  let rootIdx = generated.findIndex(
     (a) => a.method === "createFrame" && !a.parentId,
   );
+
+  // Fallback: if no root createFrame, treat any root create* as the root object
+  if (rootIdx === -1) {
+    rootIdx = generated.findIndex(
+      (a) => a.method.startsWith("create") && !a.parentId,
+    );
+  }
+
   if (rootIdx === -1) return generated;
 
   const rootAction = generated[rootIdx];
   const rootTempId = rootAction.tempId;
+  const hasChildren = generated.some(
+    (a, i) => i !== rootIdx && a.parentId === rootTempId,
+  );
   const result: ActionDescriptor[] = [];
 
   // Add resize if generator computed dimensions
@@ -91,12 +102,25 @@ function rewriteActionsForReapply(
     });
   }
 
-  // Delete existing children
-  result.push({
-    method: "deleteChildren",
-    nodeId: existingFrameId,
-    args: {},
-  });
+  // For bare shapes (no children), apply fill/cornerRadius from root action to the frame
+  if (!hasChildren) {
+    if (rootAction.args?.cornerRadius != null) {
+      result.push({
+        method: "setCornerRadius",
+        nodeId: existingFrameId,
+        args: { radius: rootAction.args.cornerRadius as number },
+      });
+    }
+  }
+
+  // Delete existing children only if the root had children
+  if (hasChildren) {
+    result.push({
+      method: "deleteChildren",
+      nodeId: existingFrameId,
+      args: {},
+    });
+  }
 
   // Rewrite remaining actions to use existing frame
   for (let i = 0; i < generated.length; i++) {

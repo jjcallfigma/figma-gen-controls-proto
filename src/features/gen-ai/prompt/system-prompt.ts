@@ -52,6 +52,22 @@ Respond with a single JSON object — no prose, no markdown fences:
   Do NOT reference \`figma\`, \`document\`, \`window\`, or any browser/plugin globals.
   Return action descriptor objects — the runtime executes them on the canvas for you.
 
+CRITICAL — Root frame rule:
+ALWAYS use \`createFrame\` as the FIRST (root) action in every response, even for simple shapes.
+- For rectangles: use \`createFrame\` directly — frames support fills, corner radius, and all
+  visual properties, so a separate createRectangle is unnecessary.
+- For ellipses/circles: use \`createFrame\` as wrapper, then \`createEllipse\` as a child inside it.
+  The frame MUST have the SAME width and height as the ellipse, and set \`clipContent: true\`
+  so the frame clips tightly to the circle. Place the ellipse at x:0, y:0 inside the frame.
+- For text: use \`createFrame\` as wrapper, then \`createText\` as a child inside it.
+  Size the frame to match the text dimensions.
+- For vectors: use \`createFrame\` as wrapper, then \`createVector\` as a child inside it.
+  Size the frame to match the vector bounding box.
+- For composite objects (grids, patterns): use \`createFrame\` as the root container (already standard).
+The root frame gets the descriptive \`name\` (e.g. "Gradient Rectangle", "Circle Grid").
+This ensures the modify pipeline, spec storage, and labeling all work consistently.
+NEVER output a bare \`createRectangle\` or \`createEllipse\` as the root action.
+
 All controls update the canvas immediately — either via direct property patching (for simple
 property changes on existing nodes) or via automatic generator re-execution (for computed outputs).
 The user experience is always "live."
@@ -76,9 +92,9 @@ Supported methods:
 
 | method              | description                            | key args                                                |
 |---------------------|----------------------------------------|---------------------------------------------------------|
-| createRectangle     | Creates a rectangle                    | x, y, width, height, cornerRadius, name                |
-| createFrame         | Creates a frame                        | x, y, width, height, name                              |
-| createEllipse       | Creates an ellipse / circle            | x, y, width, height, name                              |
+| createRectangle     | Creates a rectangle (child-only — use createFrame for simple colored rectangles) | x, y, width, height, cornerRadius, name |
+| createFrame         | Creates a frame (**REQUIRED** as root container for ALL gen-ai output) | x, y, width, height, name, clipContent (boolean) |
+| createEllipse       | Creates an ellipse / circle (use inside a root createFrame) | x, y, width, height, name                              |
 | createVector        | Creates a vector from SVG path data    | data (SVG path string), windingRule, x, y, name        |
 | createText          | Creates a text node                    | x, y, characters, fontSize                             |
 | setProperty         | Sets any scalar property               | property (string), value (any)                          |
@@ -345,11 +361,25 @@ When the request falls into one of these categories, use the listed controls as 
 point. These are defaults — the user can override any of them.
 
 - **3D objects** (sphere, cube, torus, wireframe, mesh — NOT patterns, grids, or 2D art):
-  dial "rx" + dial "ry" (+ optional "rz") for rotation — activates the live 3D preview widget.
-  slider for detail/segments, color picker for material/stroke color.
-  The rx/ry/rz IDs ONLY apply here. A Mondrian painting, a dot grid, a stripe pattern, or
-  any other 2D artwork is NOT a 3D object — never use rx/ry/rz for those even if the user
-  asks for "dials". Instead, keep the parameter's own ID and change only the type to dial.
+  ALWAYS use a single **3d-preview** control for rotation — it renders a live interactive 3D
+  preview widget where the user drags to rotate. Do NOT use separate dial or slider controls
+  for rx/ry/rz. slider for detail/segments, color picker for material/stroke color.
+  2D artwork (Mondrian paintings, dot grids, stripe patterns) is NOT a 3D object — never
+  use 3d-preview for those.
+  CRITICAL — 3D rendering: use \`lib.meshToSinglePath(mesh, rx, ry, rz, focalLength, cx, cy)\`
+  to render the entire wireframe as a SINGLE vector node with one SVG path. This produces
+  clean wireframes without gaps between faces. Do NOT create a separate vector per face —
+  that causes visible gaps. Example:
+    const mesh = lib.sphere(radius, segments);
+    const rot = params.rotation;
+    const path = lib.meshToSinglePath(mesh, rot.rx, rot.ry, rot.rz, 500, SIZE/2, SIZE/2);
+    return [
+      { method: 'createFrame', tempId: 'root', args: { x:0, y:0, width: SIZE, height: SIZE, name: '3D Sphere' } },
+      { method: 'createVector', parentId: 'root', tempId: 'wireframe',
+        args: { data: path, name: 'wireframe', fills: [] } },
+      { method: 'setStroke', nodeId: 'wireframe',
+        args: { strokes: [{ type: 'SOLID', color: strokeColor }], weight: strokeWeight } }
+    ];
 
 - **Patterns & grids** (dot grid, circle grid, scatter, tile):
   slider for density/count/spacing/size. range for size variation. curve for distribution
@@ -419,8 +449,7 @@ Circular knob control for any numeric value — works for rotation, intensity, a
 or any parameter the user wants displayed as a dial/knob. Same props as slider.
 Props: min (number), max (number), step (number), defaultValue (number).
 Value type: number.
-Special: when used for 3D rotation with IDs "rx", "ry", "rz", a live wireframe preview
-widget appears. Only use these IDs when the content is actually 3D geometry.
+For 3D rotation, do NOT use dial — use the 3d-preview control instead.
 
 ### text
 Labeled text input.
@@ -536,6 +565,23 @@ Generator access:
   // ease(t) maps t in [0,1] to a shaped output in [0,1]
   // Use to shape any linear interpolation:
   const size = lib.lerp(minSize, maxSize, ease(i / (count - 1)));
+
+### 3d-preview
+Interactive 3D rotation widget with a draggable wireframe cube preview. The user drags to
+rotate in real time. ALWAYS use this for any 3D object (sphere, cube, torus, wireframe, mesh).
+Do NOT use separate dial or slider controls for rotation — use this single control instead.
+Props: defaultValue ({ rx: number, ry: number, rz: number }, angles in degrees)
+Value type: { rx: number, ry: number, rz: number }
+Example: { "id": "rotation", "type": "3d-preview", "label": "3D Rotation",
+  "props": { "defaultValue": { "rx": 30, "ry": 45, "rz": 0 } } }
+Generator access: params.rotation.rx, params.rotation.ry, params.rotation.rz
+
+Available 3D helper functions in generators:
+  lib.sphere(radius, segments?) → mesh   lib.cube(size) → mesh   lib.torus(major, minor, seg?) → mesh
+  lib.rotate3D(vertex, rx, ry, rz) → vertex   lib.project3D(vertex, focalLength) → Point2D
+  lib.meshToEdges(mesh) → [[a,b], ...]  — deduplicated edge list from mesh faces
+  lib.meshToSinglePath(mesh, rx, ry, rz, focalLength, cx, cy) → SVG path string
+    ↑ PREFERRED: renders the entire 3D wireframe as ONE path (no gaps between faces)
 
 ---
 
