@@ -5,7 +5,7 @@ import { useAppStore } from "@/core/state/store";
 import type { UISpec, UIControl, ActionDescriptor } from "../types";
 import { compileGenerator, executeGenerator } from "../runtime/codegen";
 import { executeActions } from "../adapter/action-adapter";
-import "@rogieking/figui3/fig.css";
+import "@rogieking/figui3/components.css";
 import {
   Slider,
   Toggle,

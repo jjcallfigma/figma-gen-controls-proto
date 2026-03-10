@@ -23,17 +23,17 @@ Status codes:
 ### 0.1 App loads
 - Open `http://localhost:3000`
 - **Expect:** Figma clone loads with canvas, left nav, right properties panel
-- **Status: Passed**
+- **Status:**
 
 ### 0.2 AI sidebar opens
 - Click the sparkle/stars icon in the left nav bar
 - **Expect:** AI assistant sidebar opens with "Good morning! What do you want to do today?"
--- **Status: Passed**
+- **Status:**
 
 ### 0.3 Chat input is unified
 - Look at the bottom of the AI sidebar, in the chat input area
 - **Expect:** Model selector buttons (GPT-5.2, Claude) and a text input. No separate "Gen-AI" toggle -- generative prompts are automatically detected.
--- **Status: Passed**
+- **Status:**
 
 ---
 
@@ -44,24 +44,24 @@ Status codes:
 - **Prompt:** `Create a 5x5 grid of colorful circles`
 - **Expect:** The prompt is automatically detected as generative. Loading state, then a frame with a 5x5 grid of circles appears on the canvas.
 - **Verify:** Frame is selected after creation
-- **Status: Passed**
+- **Status:**
 
 ### 1.2 Rectangle with controls (gen-ai route)
 - **Setup:** Nothing selected
 - **Prompt:** `Create a blue rectangle with controls for width, height, corner radius, and fill color`
 - **Expect:** Rectangle appears on canvas with a blue fill. Detected as gen-ai due to "Create ... with controls".
-- **Status: Passed**
+- **Status:**
 
 ### 1.3 Design-chat prompt (design-chat route)
 - **Setup:** Select an existing element on the canvas
 - **Prompt:** `Make this text bigger and bold`
 - **Expect:** Routes through the normal design-chat pipeline (not gen-ai). The selected element is modified.
-- **Status: Passed**
+- **Status:**
 
 ### 1.4 Error handling -- empty prompt
 - **Action:** Click send with empty input
 - **Expect:** Nothing happens (button should be disabled)
-- **Status: Passed**
+- **Status:**
 
 ---
 
@@ -71,29 +71,30 @@ Status codes:
 - **Setup:** From test 1.1 or 1.2, the generated frame should still be on canvas
 - **Action:** Select the generated frame
 - **Expect:** In the right properties panel, a "Custom Controls" section appears at the bottom, showing the number of controls
-- **Status: Passed**
+- **Status:**
 
 ### 2.2 Popover opens
 - **Action:** Click the "Custom Controls" button
-- **Expect:** A floating popover appears with the control components (sliders, color pickers, etc.)
+- **Expect:** A floating popover appears with FigUI3-styled control components (sliders, color pickers, etc.)
 - **Verify:** The popover has a header with "Controls", a close (X) button, and a "Modify controls" link at the bottom
-- **Status: Passed**
+- **Verify:** Controls should use native Figma UI3 styling (not the old dialkit look)
+- **Status:**
 
 ### 2.3 Controls are interactive
 - **Action:** Drag a slider or change a value in the popover
 - **Expect:** The generated frame on canvas updates in response (generator re-runs)
-- **Status: Passed**
+- **Status:**
 
 ### 2.4 Popover closes
 - **Action:** Click the X button on the popover
 - **Expect:** Popover closes, "Custom Controls" button returns to default state
-- **Status: Passed**
+- **Status:**
 
 ### 2.5 Detach button
 - **Action:** Click the small detach button (broken-link icon) next to "Custom Controls"
 - **Expect:** The "Custom Controls" section disappears. The frame's visual output remains, but it's now a static frame with no generator attached.
 - **Verify:** Deselect and reselect the frame -- "Custom Controls" should NOT reappear
-- **Status: Passed**
+- **Status:**
 
 ---
 
@@ -104,26 +105,26 @@ Status codes:
 - **Prompt:** `Create a 3D wireframe sphere with controls for segments, stroke color, and stroke width`
 - **Expect:** A wireframe sphere made of vector paths appears on canvas
 - **Verify:** Controls appear in properties panel when frame is selected
-- **Status: Passed**
+- **Status:**
 
 ### 3.2 Color palette
 - **Setup:** Nothing selected
 - **Prompt:** `Generate a color palette with 6 harmonious swatches and a control for hue rotation`
 - **Expect:** Row of colored rectangles
 - **Verify:** Hue rotation control changes the colors
-- **Status: Passed**
+- **Status:**
 
 ### 3.3 Voronoi pattern
 - **Setup:** Nothing selected
 - **Prompt:** `Create a Voronoi pattern in a 400x400 frame with controls for cell count, stroke width, and background color`
 - **Expect:** Voronoi cells rendered as vectors
-- **Status: Passed**
+- **Status:**
 
 ### 3.4 Fractal tree
 - **Setup:** Nothing selected
 - **Prompt:** `Create a fractal tree with controls for depth (3-8), branch angle, and trunk color`
 - **Expect:** Tree shape built from vector paths
-- **Status: Passed**
+- **Status:**
 
 ---
 
@@ -133,13 +134,13 @@ Status codes:
 - **Setup:** Have a generated frame with controls from any previous test
 - **Action:** Open the popover, click "Modify controls" at the bottom
 - **Expect:** The message gets forwarded to the AI sidebar on the left
-- **Status: Passed**
+- **Status:**
 
 ### 4.2 Add a control via AI sidebar
 - **Setup:** Have a sphere or grid on canvas with controls
 - **Prompt (in AI sidebar):** `Add an opacity control`
-- **Expect:** The popover updates to include a new opacity slider
-- **Status: Passed**
+- **Expect:** The popover updates to include a new opacity slider (FigUI3-styled)
+- **Status:**
 
 ---
 
@@ -149,14 +150,14 @@ Status codes:
 - **Setup:** Create a generated frame, then click away to deselect
 - **Action:** Click the generated frame again to reselect
 - **Expect:** "Custom Controls" section reappears in properties panel with the same controls
-- **Status: Passed**
+- **Status:**
 
 ### 5.2 Controls survive page reload
 - **Setup:** Have a generated frame on canvas
 - **Action:** Refresh the browser page (Cmd+R)
 - **Expect:** The frame is still on the canvas. Selecting it shows "Custom Controls" section.
 - **Note:** This depends on the clone's persistence model -- if the clone doesn't persist objects across reloads, mark as N/A
-- **Status: Passed**
+- **Status:**
 
 ---
 
