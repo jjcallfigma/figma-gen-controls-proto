@@ -51,6 +51,7 @@ function flattenColorStops(
       out[k] = fv.stops;
       out[`${k}_type`] = fv.gradientType ?? "linear";
       out[`${k}_angle`] = fv.angle ?? 0;
+      out[`${k}_fill`] = v;
     } else {
       out[k] = v;
     }
@@ -321,10 +322,11 @@ export function useGenAI() {
 
       const { actions, ui, message: assistantMessage, generate } = parsed.data;
 
-      // Add assistant message to history
+      // Add assistant message to history — always store the raw JSON so the LLM
+      // sees its own structured output on follow-up turns and stays in JSON mode.
       chatHistoryRef.current.push({
         role: "assistant",
-        content: assistantMessage || `${actions.length} action(s), ${(ui as UISpec).controls.length} control(s)`,
+        content: fullText,
         timestamp: Date.now(),
       });
 
@@ -341,7 +343,21 @@ export function useGenAI() {
         if (normalizedUi.removeControls?.length) {
           for (const id of normalizedUi.removeControls) existingById.delete(id);
         }
-        for (const c of normalizedUi.controls) existingById.set(c.id, c);
+        for (const c of normalizedUi.controls) {
+          const existing = existingById.get(c.id);
+          if (existing && existing.props?.defaultValue !== undefined) {
+            // Existing control has a stamped value from the user — always preserve
+            // it. The LLM doesn't know the user's current runtime value, so its
+            // defaultValue (if any) is stale. Take the LLM's structural changes
+            // (label, min, max, step, etc.) but keep the user's value.
+            existingById.set(c.id, {
+              ...c,
+              props: { ...c.props, defaultValue: existing.props.defaultValue },
+            });
+          } else {
+            existingById.set(c.id, c);
+          }
+        }
         const merged = {
           ...prev,
           ...normalizedUi,
@@ -378,8 +394,8 @@ export function useGenAI() {
         // with the user's current values by specWithCurrentValues. For existing
         // controls that survived the merge, this returns their last user value.
         // For new controls from the LLM, it returns the LLM-provided defaults.
-        const defaults = flattenColorStops(collectControlDefaults(mergedUi.controls));
-        let controlValues = defaults;
+        const defaults = collectControlDefaults(mergedUi.controls);
+        let rawValues = { ...defaults };
 
         // Secondary fallback: overlay genAiValues for any values not captured
         // by the stamped spec (e.g., controls whose defaultValue wasn't stamped yet).
@@ -388,20 +404,19 @@ export function useGenAI() {
           if (existingObj?.genAiValues) {
             try {
               const persisted = JSON.parse(existingObj.genAiValues) as Record<string, unknown>;
-              // Only overlay values for controls that exist in the merged spec
-              // and whose defaultValue wasn't already stamped.
               for (const c of mergedUi.controls) {
                 if (c.id in persisted && !(c.props?.defaultValue !== undefined)) {
-                  controlValues[c.id] = persisted[c.id];
+                  rawValues[c.id] = persisted[c.id];
                 }
               }
             } catch { /* use defaults */ }
           }
         }
 
+        const controlValues = flattenColorStops(rawValues);
         const fn = compileGenerator(mergedUi.generate);
         let generated = executeGenerator(fn, controlValues);
-        usedControlValues = controlValues;
+        usedControlValues = rawValues;
 
         if (existingFrameId) {
           generated = rewriteActionsForReapply(generated, existingFrameId);

@@ -8,6 +8,7 @@ import { executeActions } from "../adapter/action-adapter";
 import "./figui3-scoped.css";
 import PropertyPopover from "@/components/ui/PropertyPopover";
 import PropertyPopoverHeader from "@/components/ui/PropertyPopoverHeader";
+import { Icon24RewriteSmall } from "@/components/icons/icon-24-rewrite-small";
 import {
   Slider,
   Toggle,
@@ -38,7 +39,7 @@ interface Props {
   onClose: () => void;
 }
 
-const FULL_WIDTH_TYPES = new Set(["3d-preview", "curve", "gradient-bar", "fill", "xy-pad", "range"]);
+const FULL_WIDTH_TYPES = new Set(["3d-preview", "curve", "gradient-bar", "xy-pad", "range"]);
 
 function FieldRow({
   label,
@@ -169,6 +170,7 @@ function flattenColorStops(params: Record<string, unknown>): Record<string, unkn
       out[k] = fv.stops;
       out[`${k}_type`] = fv.gradientType ?? "linear";
       out[`${k}_angle`] = fv.angle ?? 0;
+      out[`${k}_fill`] = v;
     } else {
       out[k] = v;
     }
@@ -399,31 +401,30 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
       width={240}
       protectedZoneRef={protectedZoneRef}
     >
-      <PropertyPopoverHeader title="Controls" onClose={onClose} />
+      <PropertyPopoverHeader
+        title="Custom"
+        onClose={onClose}
+        onAction={handleModifyControls}
+        actionIcon={<Icon24RewriteSmall />}
+        actionTitle="Modify controls"
+      />
 
       {/* Controls */}
       <div className="figui3-scope overflow-y-auto overflow-x-hidden py-2" style={{ maxHeight: 400 }}>
         <div className="flex flex-col">
-          {spec.controls.map((control) => (
-            <FieldRow key={control.id} label={control.label || control.id} fullWidth={FULL_WIDTH_TYPES.has(control.type)}>
+          {spec.controls.map((control) => {
+            const label = (control.type === "fill" || control.type === "gradient-bar") ? "Fill" : (control.label || control.id);
+            return (
+            <FieldRow key={control.id} label={label} fullWidth={FULL_WIDTH_TYPES.has(control.type)}>
               {renderControl(control, values[control.id] ?? getDefaultValue(control), (val) =>
                 handleControlChange(control.id, val),
               )}
             </FieldRow>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* Modify controls link */}
-      <div className="px-3 py-2 flex justify-center border-t">
-        <button
-          onClick={handleModifyControls}
-          className="text-[11px] font-medium hover:underline"
-          style={{ color: "var(--color-text-brand, #7B61FF)", cursor: "pointer" }}
-        >
-          Modify controls
-        </button>
-      </div>
     </PropertyPopover>
   );
 }

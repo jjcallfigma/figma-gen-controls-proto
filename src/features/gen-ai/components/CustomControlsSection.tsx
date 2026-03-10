@@ -7,6 +7,7 @@ import type { UISpec } from "../types";
 import { CustomControlsPopover } from "./CustomControlsPopover";
 import { Icon24Plus } from "@/components/icons/icon-24-plus";
 import { Icon24MinusSmall } from "@/components/icons/icon-24-minus-small";
+import { Icon24CustomControls } from "@/components/icons/icon-24-custom-controls";
 
 const POPOVER_WIDTH = 240;
 
@@ -87,20 +88,18 @@ export function CustomControlsSection({ object }: Props) {
               ref={iconButtonRef}
               onClick={togglePopover}
               className="w-6 h-6 flex items-center justify-center rounded-[5px] hover:bg-secondary flex-shrink-0"
-              style={{ color: "var(--color-text-secondary)" }}
               title="Edit controls"
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
-                <path d="M2 4h2m4 0h6M2 8h6m2 0h4M2 12h3m4 0h5" strokeLinecap="round" />
-                <circle cx="5.5" cy="4" r="1.5" fill="var(--color-bg)" />
-                <circle cx="9.5" cy="8" r="1.5" fill="var(--color-bg)" />
-                <circle cx="6.5" cy="12" r="1.5" fill="var(--color-bg)" />
-              </svg>
+              <Icon24CustomControls />
             </button>
 
-            {/* Layer name — disabled select trigger style */}
+            {/* Layer name — disabled input style matching properties panel */}
             <div
-              className="flex h-6 w-full items-center rounded-[5px] border bg-background pl-2 py-2 text-xs cursor-default opacity-70 truncate"
+              className="flex h-6 w-full items-center rounded-[5px] pl-2 text-xs cursor-default truncate"
+              style={{
+                backgroundColor: "var(--color-bg-secondary, #f5f5f5)",
+                color: "var(--color-text-tertiary, rgba(0,0,0,0.3))",
+              }}
               title={object.name}
             >
               <span className="truncate">{object.name}</span>

@@ -480,17 +480,43 @@ Generator access: params.<controlId> is a FLAT ARRAY of { id, position, color } 
 IMPORTANT: it is always a plain array, never an object. Access stops directly:
   params.gradient.map(s => s.color)  // correct
   params.gradient.stops              // WRONG — there is no .stops wrapper
-Companion metadata keys are also available:
+Companion metadata keys (ALWAYS use these in generators):
   params.<controlId>_type   // "linear" or "radial" — the gradient type the user selected
-  params.<controlId>_angle  // number — the rotation angle the user set in the picker
-Example: to build a gradient transform honoring the user's rotation:
-  const angle = params.gridGradient_angle;  // e.g. 45
-  const type = params.gridGradient_type;    // e.g. "linear"
-Use these when computing gradient fill actions so rotation/type changes apply.
-Use lib.chroma.scale(params.gradient.map(s => s.color)).domain(params.gradient.map(s => s.position))
-to create a smooth chroma scale from the stops.
-Direct-action access: wire a setFill action with no property — the stop array is automatically
-converted to a GRADIENT_LINEAR fill:
+  params.<controlId>_angle  // number (degrees) — the rotation angle from the picker
+  params.<controlId>_fill   // the full FillValue object { stops, gradientType, angle }
+CRITICAL: When a generator applies a gradient to nodes, it MUST honor _type and _angle.
+For single-node gradient fills, pass the full fill object:
+  return [{ method: 'setFill', nodeId, args: { value: params.<controlId>_fill } }];
+For multi-node color sampling (grids, patterns), use _type to vary the sampling strategy:
+  const scale = lib.chroma.scale(params.fill.map(s => s.color)).domain(params.fill.map(s => s.position));
+  const type = params.fill_type;   // "linear" or "radial"
+  const angle = params.fill_angle; // rotation in degrees
+  // For linear: sample along the rotated axis
+  // For radial: sample by distance from center
+  // Convert angle to radians: const rad = angle * Math.PI / 180;
+  // For linear: t = (col * Math.cos(rad) + row * Math.sin(rad)) / maxDist, clamped 0-1
+  // For radial: t = Math.sqrt((dx*dx + dy*dy)) / maxRadius, clamped 0-1
+Example generator using fill with type and angle:
+  const stops = params.gridGradient;
+  const type = params.gridGradient_type;
+  const angle = params.gridGradient_angle;
+  const scale = lib.chroma.scale(stops.map(s => s.color)).domain(stops.map(s => s.position));
+  const rad = angle * Math.PI / 180;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let t;
+      if (type === 'radial') {
+        const dx = c / (cols - 1) - 0.5, dy = r / (rows - 1) - 0.5;
+        t = Math.min(1, Math.sqrt(dx * dx + dy * dy) * 2);
+      } else {
+        const nx = c / (cols - 1), ny = r / (rows - 1);
+        t = Math.max(0, Math.min(1, nx * Math.cos(rad) + ny * Math.sin(rad)));
+      }
+      // ... use scale(t).hex() as fill color for each node
+    }
+  }
+Direct-action access (no generator): wire a setFill action with no property — the FillValue
+is automatically converted to a gradient fill honoring type and angle:
   "actions": [{ "method": "setFill", "nodeId": "TARGET_ID", "args": {} }]
 
 ### curve
