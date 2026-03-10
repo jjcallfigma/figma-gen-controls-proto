@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, type RefObject } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, type RefObject } from "react";
 import { useAppStore } from "@/core/state/store";
 import type { UISpec, UIControl, ActionDescriptor } from "../types";
 import { compileGenerator, executeGenerator } from "../runtime/codegen";
@@ -38,7 +38,7 @@ interface Props {
   onClose: () => void;
 }
 
-const FULL_WIDTH_TYPES = new Set(["3d-preview", "curve", "gradient-bar", "xy-pad", "range"]);
+const FULL_WIDTH_TYPES = new Set(["3d-preview", "curve", "gradient-bar", "fill", "xy-pad", "range"]);
 
 function FieldRow({
   label,
@@ -100,6 +100,8 @@ function getDefaultValue(control: UIControl): unknown {
     case "range":
       return props.defaultValue ?? { low: 0, high: 100 };
     case "gradient-bar":
+    case "fill":
+      if (props.defaultValue != null) return props.defaultValue;
       return props.stops ?? [];
     case "curve":
       return props.defaultValue ?? [0.42, 0, 0.58, 1];
@@ -110,35 +112,166 @@ function getDefaultValue(control: UIControl): unknown {
   }
 }
 
+function readFillFromCanvas(control: UIControl, frameId: string): unknown | null {
+  if (control.type !== "fill" && control.type !== "gradient-bar") return null;
+
+  const act = (control as unknown as Record<string, unknown>).action as
+    | { method?: string; nodeId?: string } | undefined;
+  if (!act || act.method !== "setFill") return null;
+
+  const nodeId = act.nodeId ?? frameId;
+  const objects = useAppStore.getState().objects;
+  const obj = objects[nodeId] ?? objects[frameId];
+  if (!obj?.fills?.length) return null;
+
+  const fill = obj.fills[0];
+  if (fill.type === "linear-gradient" && "stops" in fill && "angle" in fill) {
+    const gf = fill as { stops: { position: number; color: string; opacity?: number }[]; angle: number };
+    return {
+      stops: gf.stops.map((s, i) => ({ id: `stop-${i}`, position: s.position, color: s.color })),
+      gradientType: "linear",
+      angle: gf.angle,
+    };
+  }
+  if (fill.type === "radial-gradient" && "stops" in fill) {
+    const gf = fill as { stops: { position: number; color: string; opacity?: number }[] };
+    return {
+      stops: gf.stops.map((s, i) => ({ id: `stop-${i}`, position: s.position, color: s.color })),
+      gradientType: "radial",
+      angle: 0,
+    };
+  }
+  if (fill.type === "solid" && "color" in fill) {
+    const sf = fill as { color: string };
+    return {
+      stops: [
+        { id: "stop-0", position: 0, color: sf.color },
+        { id: "stop-1", position: 1, color: sf.color },
+      ],
+      gradientType: "linear",
+      angle: 180,
+    };
+  }
+  return null;
+}
+
 function flattenColorStops(params: Record<string, unknown>): Record<string, unknown> {
-  return { ...params };
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(params)) {
+    if (
+      v &&
+      typeof v === "object" &&
+      !Array.isArray(v) &&
+      "stops" in v &&
+      Array.isArray((v as Record<string, unknown>).stops)
+    ) {
+      const fv = v as { stops: unknown[]; gradientType?: string; angle?: number };
+      out[k] = fv.stops;
+      out[`${k}_type`] = fv.gradientType ?? "linear";
+      out[`${k}_angle`] = fv.angle ?? 0;
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+/**
+ * Stamps current control values into the UISpec's defaultValue fields so that
+ * persisted specs restore with the user's last-applied settings.
+ */
+function specWithCurrentValues(spec: UISpec, values: Record<string, unknown>): UISpec {
+  function updateControl(c: UIControl): UIControl {
+    const val = values[c.id];
+    return val !== undefined
+      ? { ...c, props: { ...c.props, defaultValue: val } }
+      : c;
+  }
+  return { ...spec, controls: spec.controls.map(updateControl) };
+}
+
+/**
+ * Load control values from the spec's defaultValue fields (which are stamped
+ * with current values on every change). Falls back to genAiValues and canvas
+ * readback as secondary sources.
+ */
+function loadPersistedValues(
+  controls: UIControl[],
+  frameId: string,
+): Record<string, unknown> {
+  const obj = useAppStore.getState().objects[frameId];
+
+  // Secondary fallback: genAiValues (kept for backward compatibility)
+  let genAiValues: Record<string, unknown> = {};
+  if (obj?.genAiValues) {
+    try {
+      genAiValues = JSON.parse(obj.genAiValues) as Record<string, unknown>;
+    } catch { /* ignore */ }
+  }
+
+  const result: Record<string, unknown> = {};
+  for (const c of controls) {
+    const props = c.props ?? {};
+    const hasStampedValue = props.defaultValue !== undefined;
+
+    if (hasStampedValue) {
+      // Primary: spec's defaultValue (stamped by specWithCurrentValues)
+      result[c.id] = getDefaultValue(c);
+    } else if (c.id in genAiValues) {
+      // Secondary: genAiValues fallback for controls that were never stamped
+      result[c.id] = genAiValues[c.id];
+    } else {
+      // Tertiary: canvas readback for fills, then spec defaults
+      const canvasVal = readFillFromCanvas(c, frameId);
+      result[c.id] = canvasVal ?? getDefaultValue(c);
+    }
+  }
+  return result;
 }
 
 export function CustomControlsPopover({ spec, frameId, isOpen, position, onPositionChange, protectedZoneRef, onClose }: Props) {
-  const [values, setValues] = useState<Record<string, unknown>>(() => {
-    const defaults: Record<string, unknown> = {};
-    for (const c of spec.controls) {
-      defaults[c.id] = getDefaultValue(c);
-    }
-    return defaults;
-  });
+  const [values, setValues] = useState<Record<string, unknown>>(() =>
+    loadPersistedValues(spec.controls, frameId),
+  );
 
   const rerunTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sync values when spec controls change (e.g. new control added via modify)
+  // Only reload values when the control structure (ids + types) actually changes
+  // or when the popover reopens. This prevents unnecessary resets when the spec
+  // updates for non-structural reasons (e.g., label changes, generate function).
+  const controlStructureKey = useMemo(
+    () => spec.controls.map((c) => `${c.id}:${c.type}`).join(","),
+    [spec.controls],
+  );
+
   useEffect(() => {
-    setValues((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const c of spec.controls) {
-        if (!(c.id in next)) {
-          next[c.id] = getDefaultValue(c);
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [spec]);
+    if (!isOpen) return;
+    setValues(() => loadPersistedValues(spec.controls, frameId));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, controlStructureKey, frameId]);
+
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const persistValues = useCallback(
+    (vals: Record<string, unknown>) => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = setTimeout(() => {
+        const stamped = specWithCurrentValues(spec, vals);
+        useAppStore.getState().dispatch({
+          type: "object.updated",
+          payload: {
+            id: frameId,
+            changes: {
+              genAiSpec: JSON.stringify(stamped),
+              genAiValues: JSON.stringify(vals),
+            },
+            previousValues: {},
+          },
+        });
+      }, 500);
+    },
+    [frameId, spec],
+  );
 
   const handleControlChange = useCallback(
     (controlId: string, value: unknown) => {
@@ -151,9 +284,6 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
 
         rerunTimeoutRef.current = setTimeout(() => {
           try {
-            // When a generator exists, always re-run it so all control
-            // values stay coherent (avoids one control's direct dispatch
-            // being overwritten by the next control's generator re-run).
             if (spec.generate) {
               const fn = compileGenerator(spec.generate);
               const params = flattenColorStops(next);
@@ -200,8 +330,6 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
                   finalActions.push(action);
                 }
               } else {
-                // No createFrame: remap any temp nodeId references to the
-                // root object so setFill/setStroke/etc. hit the real object.
                 for (const action of generated) {
                   const a = { ...action, args: { ...action.args } };
                   if (a.nodeId && !useAppStore.getState().objects[a.nodeId]) {
@@ -213,7 +341,6 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
 
               executeActions(finalActions);
             } else {
-              // Fallback: no generator, use action templates for direct dispatch
               const control = spec.controls.find((c) => c.id === controlId);
               const actionTemplate = (control as Record<string, unknown> | undefined)?.action as
                 | { method: string; nodeId?: string; args?: Record<string, unknown> }
@@ -235,6 +362,8 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
                 executeActions([action]);
               }
             }
+
+            persistValues(next);
           } catch (err) {
             console.error("[gen-ai] Control re-run error:", err);
           }
@@ -243,13 +372,13 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
         return next;
       });
     },
-    [spec, frameId],
+    [spec, frameId, persistValues],
   );
 
-  // Clean up timeout on unmount
   useEffect(() => {
     return () => {
       if (rerunTimeoutRef.current) clearTimeout(rerunTimeoutRef.current);
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
     };
   }, []);
 
@@ -420,11 +549,12 @@ function renderControl(
       );
 
     case "gradient-bar":
+    case "fill":
       return (
         <GradientBar
           label={label}
           value={value as { id: string; position: number; color: string }[]}
-          onChange={onChange as (v: { id: string; position: number; color: string }[]) => void}
+          onChange={onChange}
         />
       );
 

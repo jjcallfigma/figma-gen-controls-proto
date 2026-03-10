@@ -2024,8 +2024,12 @@ export function compileGenerator(code: string): GeneratorFn {
     body = aliases.length > 0 ? aliases.join('\n') + '\n' + innerBody : innerBody;
   }
 
+  const preamble =
+    `"use strict";\n`
+    + `const figma = new Proxy({}, { get(_, p) { throw new Error("figma." + String(p) + " is not available in generators — return action descriptors instead"); } });\n`;
+
   // eslint-disable-next-line no-new-func
-  const fn = new Function('params', 'lib', body) as GeneratorFn;
+  const fn = new Function('params', 'lib', preamble + body) as GeneratorFn;
   return fn;
 }
 

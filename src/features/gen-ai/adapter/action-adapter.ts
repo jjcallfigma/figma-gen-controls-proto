@@ -249,8 +249,98 @@ function handleSetFill(action: ActionDescriptor, tempIdMap: Map<string, string>)
     return;
   }
 
+  // FillValue object { stops, gradientType, angle } → gradient fill
+  const fillVal = args.value as Record<string, unknown> | undefined;
+  if (fillVal && typeof fillVal === "object" && !Array.isArray(fillVal) &&
+      Array.isArray(fillVal.stops)) {
+    const rawStops = fillVal.stops as { position: number; color: string; id?: string }[];
+    const stops = rawStops.map((s) => ({
+      position: s.position,
+      color: s.color,
+      opacity: 1,
+    }));
+    const gradientType = (fillVal.gradientType as string) ?? "linear";
+    const angle = typeof fillVal.angle === "number" ? fillVal.angle : 180;
+    const fillType = gradientType === "radial" ? "radial-gradient" as const : "linear-gradient" as const;
+    const existingOpacity = obj.fills?.[0]?.opacity ?? 1;
+
+    if (fillType === "radial-gradient") {
+      dispatch({
+        type: "object.updated",
+        payload: {
+          id: nodeId,
+          changes: {
+            fills: [{
+              id: nanoid(),
+              type: fillType,
+              centerX: 0.5,
+              centerY: 0.5,
+              radius: 0.5,
+              stops,
+              opacity: existingOpacity,
+              visible: true,
+            }],
+          },
+          previousValues: { fills: obj.fills },
+        },
+      });
+    } else {
+      dispatch({
+        type: "object.updated",
+        payload: {
+          id: nodeId,
+          changes: {
+            fills: [{
+              id: nanoid(),
+              type: fillType,
+              angle,
+              stops,
+              opacity: existingOpacity,
+              visible: true,
+            }],
+          },
+          previousValues: { fills: obj.fills },
+        },
+      });
+    }
+    return;
+  }
+
+  // Gradient stop array → linear-gradient fill (legacy format)
+  if (Array.isArray(args.value) && (args.value as unknown[]).length > 0 &&
+      typeof (args.value as Record<string, unknown>[])[0]?.color === "string") {
+    const stops = (args.value as { position: number; color: string; id?: string }[]).map((s) => ({
+      position: s.position,
+      color: s.color,
+      opacity: 1,
+    }));
+    const existingFill = obj.fills?.[0];
+    const existingAngle =
+      existingFill && "angle" in existingFill ? (existingFill as { angle: number }).angle : 180;
+    const existingOpacity = existingFill?.opacity ?? 1;
+    dispatch({
+      type: "object.updated",
+      payload: {
+        id: nodeId,
+        changes: {
+          fills: [{
+            id: nanoid(),
+            type: "linear-gradient" as const,
+            angle: existingAngle,
+            stops,
+            opacity: existingOpacity,
+            visible: true,
+          }],
+        },
+        previousValues: { fills: obj.fills },
+      },
+    });
+    return;
+  }
+
   // Hex string → solid fill
   if (typeof args.value === "string" && (args.value as string).startsWith("#")) {
+    const existingOpacity = obj.fills?.[0]?.opacity ?? 1;
     dispatch({
       type: "object.updated",
       payload: {
@@ -260,7 +350,7 @@ function handleSetFill(action: ActionDescriptor, tempIdMap: Map<string, string>)
             id: nanoid(),
             type: "solid" as const,
             color: args.value as string,
-            opacity: 1,
+            opacity: existingOpacity,
             visible: true,
           }],
         },
@@ -273,6 +363,7 @@ function handleSetFill(action: ActionDescriptor, tempIdMap: Map<string, string>)
   // Color object { r, g, b } → solid fill
   if (args.property === "color" && typeof args.value === "object" && args.value !== null) {
     const c = args.value as { r: number; g: number; b: number };
+    const existingOpacity = obj.fills?.[0]?.opacity ?? 1;
     dispatch({
       type: "object.updated",
       payload: {
@@ -282,7 +373,7 @@ function handleSetFill(action: ActionDescriptor, tempIdMap: Map<string, string>)
             id: nanoid(),
             type: "solid" as const,
             color: rgbToHex(c.r, c.g, c.b),
-            opacity: 1,
+            opacity: existingOpacity,
             visible: true,
           }],
         },
@@ -292,14 +383,30 @@ function handleSetFill(action: ActionDescriptor, tempIdMap: Map<string, string>)
     return;
   }
 
-  // HSL-based property changes (saturation, hue, lightness)
+  // Opacity: preserve existing fill type and just update the opacity field
   const hslProp = args.property as string;
-  if ((hslProp === "saturation" || hslProp === "hue" || hslProp === "lightness" || hslProp === "brightness" || hslProp === "opacity") && typeof args.value === "number") {
+  if (hslProp === "opacity" && typeof args.value === "number") {
+    const currentFill = obj.fills?.[0];
+    if (currentFill) {
+      const updated = { ...currentFill, opacity: args.value as number };
+      dispatch({
+        type: "object.updated",
+        payload: {
+          id: nodeId,
+          changes: { fills: [updated] },
+          previousValues: { fills: obj.fills },
+        },
+      });
+    }
+    return;
+  }
+
+  // HSL-based property changes (saturation, hue, lightness)
+  if ((hslProp === "saturation" || hslProp === "hue" || hslProp === "lightness" || hslProp === "brightness") && typeof args.value === "number") {
     const currentFill = obj.fills?.[0];
     const currentHex = currentFill && "color" in currentFill ? (currentFill as { color: string }).color : "#FF0000";
     const rgb = hexToRgb(currentHex);
 
-    // Convert RGB (0-1) to HSL
     const max = Math.max(rgb.r, rgb.g, rgb.b);
     const min = Math.min(rgb.r, rgb.g, rgb.b);
     let h = 0, s = 0;
@@ -318,7 +425,6 @@ function handleSetFill(action: ActionDescriptor, tempIdMap: Map<string, string>)
     else if (hslProp === "hue") nh = (args.value as number) / 360;
     else if (hslProp === "lightness" || hslProp === "brightness") nl = args.value as number;
 
-    // HSL to RGB
     const hue2rgb = (p: number, q: number, t: number) => {
       if (t < 0) t += 1;
       if (t > 1) t -= 1;
@@ -337,29 +443,16 @@ function handleSetFill(action: ActionDescriptor, tempIdMap: Map<string, string>)
       nb = hue2rgb(p, q, nh - 1 / 3);
     }
 
-    if (hslProp === "opacity") {
-      dispatch({
-        type: "object.updated",
-        payload: {
-          id: nodeId,
-          changes: {
-            fills: [{ id: nanoid(), type: "solid" as const, color: currentHex, opacity: args.value as number, visible: true }],
-          },
-          previousValues: { fills: obj.fills },
+    dispatch({
+      type: "object.updated",
+      payload: {
+        id: nodeId,
+        changes: {
+          fills: [{ id: nanoid(), type: "solid" as const, color: rgbToHex(nr, ng, nb), opacity: 1, visible: true }],
         },
-      });
-    } else {
-      dispatch({
-        type: "object.updated",
-        payload: {
-          id: nodeId,
-          changes: {
-            fills: [{ id: nanoid(), type: "solid" as const, color: rgbToHex(nr, ng, nb), opacity: 1, visible: true }],
-          },
-          previousValues: { fills: obj.fills },
-        },
-      });
-    }
+        previousValues: { fills: obj.fills },
+      },
+    });
   }
 }
 

@@ -1,0 +1,61 @@
+---
+description: Gen-AI feature architecture and data flow
+globs: src/features/gen-ai/**
+alwaysApply: false
+---
+
+# Gen-AI Feature Guide
+
+## Data Flow
+
+```
+User prompt
+  -> useGenAI.sendPrompt()
+  -> LLM returns { actions, ui }
+  -> actions executed via action-adapter.ts (creates/updates canvas objects)
+  -> ui spec stored as genAiSpec on the root frame
+  -> CustomControlsPopover renders the ui spec as interactive controls
+  -> Control changes either:
+     a) Re-run the generator function (if spec.generate exists)
+     b) Execute the control's individual action template
+  -> Canvas updates dispatched, values stamped back into genAiSpec
+```
+
+## Key Files
+
+| File | Role |
+|------|------|
+| `hooks/useGenAI.ts` | Chat state, streaming, prompt dispatch, generator execution |
+| `adapter/action-adapter.ts` | Maps action descriptors to canvas store dispatches |
+| `adapter/fill-converter.ts` | Converts between gen-ai fill formats and canvas fill types |
+| `components/CustomControlsPopover.tsx` | Renders UISpec controls, manages values, persists state |
+| `runtime/codegen.ts` | Compiles and executes generator functions |
+| `runtime/template.ts` | Control defaults, placeholder resolution, `collectControlDefaults` |
+| `prompt/system-prompt.ts` | LLM instructions — action format, control types, recipes |
+| `utils/intent.ts` | `isGenAiIntent()` regex for routing prompts |
+| `store.ts` | Per-frame UISpec and control values (Zustand) |
+
+## Value Persistence (specWithCurrentValues)
+
+When control values change:
+1. `CustomControlsPopover.persistValues` stamps current values into `spec.controls[].props.defaultValue`
+2. The stamped spec is saved as `genAiSpec` JSON on the canvas object
+3. `genAiValues` JSON is saved alongside as a fallback
+4. On popover reopen, `loadPersistedValues` reads stamped `defaultValue` first, then `genAiValues`, then reads from canvas
+
+## Modify Pipeline
+
+When modifying an existing gen-ai object:
+1. `restoreFromFrame(frameId, genAiSpec)` is called to set context
+2. `sendPrompt(message)` merges the LLM response with the existing spec
+3. `rewriteActionsForReapply` retargets all actions to the existing frame
+4. Generator re-runs with current values (stamped defaults + persisted values)
+
+## Control Types
+
+- `slider` / `range`: Numeric sliders
+- `color`: Single solid color picker
+- `fill`: Multi-stop gradient/fill picker (FigUI3 `fig-input-fill`). Always use this for gradients.
+- `select` / `radio`: Enumerated options
+- `checkbox` / `toggle`: Boolean
+- `text`: String input

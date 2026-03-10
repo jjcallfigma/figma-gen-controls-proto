@@ -32,6 +32,7 @@ import { Icon24ChevronDownLarge } from "../icons/icon-24-chevron-down-large";
 import { Icon24ChevronUpLarge } from "../icons/icon-24-chevron-up-large";
 import { Icon24DockToSide } from "../icons/icon-24-dock-to-side";
 import { Icon24Send } from "../icons/icon-24-send";
+import { isGenAiIntent } from "@/features/gen-ai/utils/intent";
 
 type EntrypointState = "loading" | "done" | null;
 
@@ -554,7 +555,7 @@ export default function OnCanvasAiPrompt({
     const text = message.trim();
     if (!text || !selectionFingerprint) return;
 
-    // If opened via "Modify controls", route through gen-ai pipeline
+    // Explicit "Modify controls" path — always gen-ai regardless of content
     if (genAiModifyFrameRef.current) {
       window.dispatchEvent(
         new CustomEvent("gen-ai-modify-send", {
@@ -565,15 +566,30 @@ export default function OnCanvasAiPrompt({
         }),
       );
     } else {
-      window.dispatchEvent(
-        new CustomEvent("ai-mini-prompt-send", {
-          detail: {
-            message: text,
-            fingerprint: selectionFingerprint,
-            sessionId: effectiveSessionId ?? undefined,
-          },
-        }),
-      );
+      // Auto-detect: if the selected object has genAiSpec or message looks like
+      // a gen-ai request, route through the gen-ai modify pipeline.
+      const singleSelected = selectedIds.length === 1 ? selectedIds[0] : null;
+      const selectedObj = singleSelected ? objects[singleSelected] : null;
+      const selectedHasGenAi = !!(selectedObj?.genAiSpec);
+
+      if (selectedHasGenAi || isGenAiIntent(text)) {
+        const frameId = singleSelected ?? selectionFingerprint;
+        window.dispatchEvent(
+          new CustomEvent("gen-ai-modify-send", {
+            detail: { message: text, frameId },
+          }),
+        );
+      } else {
+        window.dispatchEvent(
+          new CustomEvent("ai-mini-prompt-send", {
+            detail: {
+              message: text,
+              fingerprint: selectionFingerprint,
+              sessionId: effectiveSessionId ?? undefined,
+            },
+          }),
+        );
+      }
     }
 
     setMessage("");
@@ -582,6 +598,8 @@ export default function OnCanvasAiPrompt({
     message,
     selectionFingerprint,
     effectiveSessionId,
+    selectedIds,
+    objects,
     closePrompt,
   ]);
 
@@ -984,7 +1002,7 @@ export default function OnCanvasAiPrompt({
                 sessionId={effectiveSessionId || selectionFingerprint}
               />
             )}
-            <div className="flex items-end gap-1.5 p-3 bg-[var(--color-bg)]">
+            <div className="flex items-end gap-1.5 p-3 bg-[var(--color-bg)]" style={{ lineHeight: "24px" }}>
               <textarea
                 ref={textareaRef}
                 value={message}
@@ -995,7 +1013,7 @@ export default function OnCanvasAiPrompt({
                 }
                 disabled={isLoading}
                 rows={1}
-                className="flex-1 text-[13px] leading-[24px] resize-none outline-none bg-transparent placeholder:text-[var(--color-text-tertiary)]"
+                className="flex-1 text-[13px] resize-none outline-none bg-transparent placeholder:text-[var(--color-text-tertiary)]"
                 style={{
                   color: "var(--color-text)",
                   minHeight: "24px",

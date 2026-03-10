@@ -308,6 +308,7 @@ export interface UIControl {
     | 'xy-pad'
     | 'range'
     | 'gradient-bar'
+    | 'fill'
     | 'curve'
     | '3d-preview';
   label?: string;

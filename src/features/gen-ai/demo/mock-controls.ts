@@ -13,7 +13,7 @@ const fullControls: UIControl[] = [
   { id: "color-fill", type: "color", label: "Fill Color", props: { defaultValue: "#3B82F6" } },
   { id: "text-name", type: "text", label: "Layer Name", props: { placeholder: "Enter a name…", defaultValue: "" } },
   { id: "xy-shadow", type: "xy-pad", label: "Shadow Offset", props: { minX: -50, maxX: 50, minY: -50, maxY: 50, stepX: 1, stepY: 1, defaultValue: { x: -20, y: 15 } } },
-  { id: "grad-sunset", type: "gradient-bar", label: "Gradient", props: { stops: [{ id: "s0", position: 0, color: "#FF6B35" }, { id: "s1", position: 0.5, color: "#F7C948" }, { id: "s2", position: 1, color: "#9B5DE5" }] } },
+  { id: "fill-sunset", type: "fill", label: "Fill", props: { stops: [{ id: "s0", position: 0, color: "#FF6B35" }, { id: "s1", position: 0.5, color: "#F7C948" }, { id: "s2", position: 1, color: "#9B5DE5" }] } },
   { id: "crv-falloff", type: "curve", label: "Falloff Curve", props: { defaultValue: [0.42, 0, 0.58, 1] } },
 ];
 
@@ -136,13 +136,13 @@ export const MOCK_CONTROLS: Record<string, { label: string; spec: UISpec }> = {
       ],
     },
   },
-  gradient: {
-    label: "Gradient Bar",
+  fill: {
+    label: "Fill",
     spec: {
       mode: "live",
       controls: [
-        { id: "grad-sunset", type: "gradient-bar", label: "Sunset Gradient", props: { stops: [{ id: "s0", position: 0, color: "#FF6B35" }, { id: "s1", position: 0.5, color: "#F7C948" }, { id: "s2", position: 1, color: "#9B5DE5" }] } },
-        { id: "grad-simple", type: "gradient-bar", label: "Simple Gradient", props: { stops: [{ id: "s0", position: 0, color: "#af2626" }, { id: "s1", position: 1, color: "#878787" }] } },
+        { id: "fill-sunset", type: "fill", label: "Sunset Fill", props: { stops: [{ id: "s0", position: 0, color: "#FF6B35" }, { id: "s1", position: 0.5, color: "#F7C948" }, { id: "s2", position: 1, color: "#9B5DE5" }] } },
+        { id: "fill-simple", type: "fill", label: "Simple Fill", props: { stops: [{ id: "s0", position: 0, color: "#af2626" }, { id: "s1", position: 1, color: "#878787" }] } },
       ],
     },
   },

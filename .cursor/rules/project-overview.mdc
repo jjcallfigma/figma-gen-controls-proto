@@ -1,0 +1,45 @@
+---
+description: Project architecture, tech stack, and domain context
+alwaysApply: true
+---
+
+# Figma Clone — Project Overview
+
+A browser-based Figma clone with an embedded Gen-AI plugin engine. Users design on a canvas and invoke AI to generate custom "plugins" — both canvas actions and a live control panel — on the fly.
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router) with React 19
+- **Language**: TypeScript (strict mode, ES2017 target)
+- **Styling**: Tailwind CSS 3 + Figma design tokens (CSS custom properties)
+- **State**: Zustand + Immer (event-sourced, undo/redo); separate transient store for 60fps drag/resize
+- **UI primitives**: Radix UI / shadcn + FigUI3 web components (`@rogieking/figui3`)
+- **Canvas**: Custom DOM-based renderer (world/screen coordinate system, not HTML canvas element)
+- **Gen-AI**: LLM returns JSON `{ actions, ui }` — actions execute on canvas, `ui` defines a declarative control panel
+
+## Path Aliases
+
+- `@/*` maps to `./src/*`
+- `@fpl/tokens` maps to `./src/lib/color-theme`
+
+## Key Directories
+
+```
+src/
+  app/            Next.js App Router (layout, page, API routes)
+  components/     Shared UI — canvas, panels, toolbars, sidebars
+  core/           State (stores), hooks, services, utils
+  features/       Feature modules (gen-ai is the primary one)
+  contexts/       React contexts (Theme, Navigation)
+  types/          Shared TypeScript types (canvas.ts is central)
+  hooks/          Global hooks (persistence, cursors)
+  lib/            Color theme tokens, utilities
+  styles/         CSS tokens, global styles
+```
+
+## Architecture
+
+- **Event-sourced store**: All mutations go through `dispatch(createEvent(...))`. A reducer (`applyEventToState`) applies them to an Immer draft. Undo/redo stacks are maintained automatically.
+- **Transient store**: High-frequency state (drag positions, resize) lives outside Immer to avoid re-render overhead.
+- **Gen-AI pipeline**: User prompt -> LLM -> JSON response -> `action-adapter.ts` executes canvas actions + `CustomControlsPopover.tsx` renders the UI spec. Generator functions allow controls to re-run actions live without another LLM call.
+- **Fill system**: `Fill` is a discriminated union (`solid | linear-gradient | radial-gradient | image`). All fill mutations go through `action-adapter.ts handleSetFill`. Opacity updates must preserve the existing fill type.

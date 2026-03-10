@@ -40,8 +40,17 @@ function flattenColorStops(
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(params)) {
-    if (Array.isArray(v) && v.length > 0 && typeof v[0] === "object" && v[0] !== null && "color" in v[0]) {
-      out[k] = v;
+    if (
+      v &&
+      typeof v === "object" &&
+      !Array.isArray(v) &&
+      "stops" in v &&
+      Array.isArray((v as Record<string, unknown>).stops)
+    ) {
+      const fv = v as { stops: unknown[]; gradientType?: string; angle?: number };
+      out[k] = fv.stops;
+      out[`${k}_type`] = fv.gradientType ?? "linear";
+      out[`${k}_angle`] = fv.angle ?? 0;
     } else {
       out[k] = v;
     }
@@ -354,6 +363,7 @@ export function useGenAI() {
 
       // Execute actions or run generator
       let result: ExecuteResult;
+      let usedControlValues: Record<string, unknown> | null = null;
 
       if ((actions as ActionDescriptor[]).length > 0) {
         let finalActions = actions as ActionDescriptor[];
@@ -364,9 +374,34 @@ export function useGenAI() {
 
         result = executeActions(finalActions);
       } else if (mergedUi.generate) {
+        // collectControlDefaults reads props.defaultValue, which is stamped
+        // with the user's current values by specWithCurrentValues. For existing
+        // controls that survived the merge, this returns their last user value.
+        // For new controls from the LLM, it returns the LLM-provided defaults.
         const defaults = flattenColorStops(collectControlDefaults(mergedUi.controls));
+        let controlValues = defaults;
+
+        // Secondary fallback: overlay genAiValues for any values not captured
+        // by the stamped spec (e.g., controls whose defaultValue wasn't stamped yet).
+        if (existingFrameId) {
+          const existingObj = useAppStore.getState().objects[existingFrameId];
+          if (existingObj?.genAiValues) {
+            try {
+              const persisted = JSON.parse(existingObj.genAiValues) as Record<string, unknown>;
+              // Only overlay values for controls that exist in the merged spec
+              // and whose defaultValue wasn't already stamped.
+              for (const c of mergedUi.controls) {
+                if (c.id in persisted && !(c.props?.defaultValue !== undefined)) {
+                  controlValues[c.id] = persisted[c.id];
+                }
+              }
+            } catch { /* use defaults */ }
+          }
+        }
+
         const fn = compileGenerator(mergedUi.generate);
-        let generated = executeGenerator(fn, defaults);
+        let generated = executeGenerator(fn, controlValues);
+        usedControlValues = controlValues;
 
         if (existingFrameId) {
           generated = rewriteActionsForReapply(generated, existingFrameId);
@@ -394,14 +429,18 @@ export function useGenAI() {
         }
       }
 
-      // Persist spec on the root object
+      // Persist spec and current control values on the root object
       if (rootFrameIdRef.current) {
         const specJson = JSON.stringify(mergedUi);
+        const changes: Record<string, unknown> = { genAiSpec: specJson };
+        if (usedControlValues) {
+          changes.genAiValues = JSON.stringify(usedControlValues);
+        }
         useAppStore.getState().dispatch({
           type: "object.updated",
           payload: {
             id: rootFrameIdRef.current,
-            changes: { genAiSpec: specJson },
+            changes,
             previousValues: {},
           },
         });

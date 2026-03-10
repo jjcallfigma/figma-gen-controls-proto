@@ -47,7 +47,9 @@ function getControlDefaultValue(control: UIControl): unknown {
         high: dv?.high ?? (typeof props.max === 'number' ? props.max : 1),
       };
     }
-    case 'gradient-bar': {
+    case 'gradient-bar':
+    case 'fill': {
+      if (props.defaultValue != null) return props.defaultValue;
       const stops = Array.isArray(props.stops) ? props.stops as { id: string; position: number; color: string }[] : null;
       return stops ?? [
         { id: 'stop0', position: 0, color: '#000000' },

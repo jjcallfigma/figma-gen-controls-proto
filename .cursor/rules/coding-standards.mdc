@@ -1,0 +1,49 @@
+---
+description: Coding conventions and preferred patterns
+alwaysApply: true
+---
+
+# Coding Standards
+
+## TypeScript
+
+- Strict mode. No `any` unless truly unavoidable — prefer `unknown` with narrowing.
+- Use `type` for object shapes and unions; `interface` only when extending is needed.
+- Prefer `const` assertions and discriminated unions over string enums.
+- Named exports over default exports.
+
+## React
+
+- Functional components only. No class components.
+- Use `useCallback` / `useMemo` for handlers and derived values passed as props.
+- Colocate component-specific hooks in the same file or a sibling `use*.ts`.
+- Prefer controlled components; use `useRef` for imperative DOM access (especially FigUI3 web components).
+
+## State (Zustand)
+
+- All canvas mutations go through `dispatch(createEvent(...))`. Never mutate store state directly.
+- Use `useAppStore` selectors for reads; avoid subscribing to the entire store.
+- Transient/high-frequency state (drag, resize) belongs in `transientStore`, not the main store.
+
+## Styling
+
+- Tailwind utility classes for layout and spacing.
+- Figma design tokens via CSS custom properties (`--color-bg-*`, `--color-text-*`, `--color-border-*`).
+- FigUI3 web component styles are scoped inside `.figui3-scope` using `figui3-scoped.css`. Use CSS `@layer` for import, then unlayered overrides for specificity.
+- Base font: Inter, 11px. Tailwind `text-xs` and `text-base` both resolve to 11px.
+- Font weight `normal` = 450, `medium` = 550.
+
+## Gen-AI Controls
+
+- The `specWithCurrentValues` pattern stamps live control values into `props.defaultValue` before persisting `genAiSpec`. This is the single source of truth for control state.
+- `genAiValues` JSON is a fallback only.
+- When a control's action modifies fills, always preserve the existing fill type — never hardcode `type: "solid"`.
+- Use `fill` (type `"fill"`) for any gradient or multi-stop color control. Reserve `color` for single solid colors only.
+
+## Naming
+
+- Components: PascalCase (`CustomControlsPopover.tsx`)
+- Hooks: `use` prefix (`useGenAI.ts`)
+- Utils/adapters: kebab-case (`action-adapter.ts`, `fill-converter.ts`)
+- CSS files: kebab-case, colocated with their component
+- Store files: camelCase (`transientStore.ts`)

@@ -22,6 +22,7 @@
  *
  * Input overrides align FigUI3 text/number inputs with the native PropertyInput
  * component (h-6 = 24px, rounded-[5px], bg-secondary, py-1 px-2, text-[11px]).
+ * Picker dialog inputs are excluded so FigUI3's own picker styling is preserved.
  */
 .figui3-scope {
   font-size: 0.6875rem;
@@ -29,11 +30,62 @@
   letter-spacing: 0.055px;
 }
 
-.figui3-scope input[type="text"],
-.figui3-scope input[type="number"],
-.figui3-scope input[type="password"],
-.figui3-scope textarea,
-.figui3-scope .input {
+/*
+ * The fill picker <dialog> is hoisted to <body> by the browser (top-layer),
+ * so it loses .figui3-scope inheritance. Apply FigUI3 typography directly
+ * and let the layered FigUI3 styles handle all internal picker layout.
+ */
+.fig-fill-picker-dialog {
+  font-size: 0.6875rem;
+  font-weight: 450;
+  letter-spacing: 0.055px;
+}
+
+/*
+ * FigUI3 applies `box-shadow: inset 0 0 0 1px var(--figma-color-border-selected)`
+ * on `:focus` to ALL textarea/input elements (bare element selectors). Because
+ * no Tailwind utility on the app's textareas competes on `box-shadow`, the layered
+ * rule wins by default, producing an unwanted blue outline on every focused
+ * textarea/input outside of FigUI3 controls.
+ *
+ * This reset has lower specificity than Tailwind's `.focus-visible\:ring-*`
+ * utilities, so components that intentionally use Tailwind ring classes are
+ * unaffected.
+ */
+textarea:not(.figui3-scope *):not(.fig-fill-picker-dialog *):focus,
+input:not(.figui3-scope *):not(.fig-fill-picker-dialog *):focus,
+select:not(.figui3-scope *):not(.fig-fill-picker-dialog *):focus {
+  box-shadow: none;
+}
+
+/*
+ * FigUI3 sets problematic properties on bare textarea/input selectors:
+ *   - line-height: 1rem !important (in layer)  → breaks text centering
+ *   - display: flex (in layer, no !important)   → non-standard on textarea
+ *
+ * For `display`: unlayered always beats layered for normal declarations.
+ * For `line-height !important`: same-layer rules with higher specificity
+ * win, so we add a second @layer figui3 block (merges with the import).
+ * This restores line-height to `inherit` for non-FigUI3 elements, letting
+ * Tailwind classes and inline styles set the actual value.
+ */
+textarea:not(.figui3-scope *):not(.fig-fill-picker-dialog *) {
+  display: block;
+}
+
+@layer figui3 {
+  textarea:not(.figui3-scope *):not(.fig-fill-picker-dialog *),
+  input:not(.figui3-scope *):not(.fig-fill-picker-dialog *) {
+    line-height: inherit !important;
+  }
+}
+
+/* Input overrides — exclude picker dialog internals */
+.figui3-scope input[type="text"]:not(.fig-fill-picker-dialog *),
+.figui3-scope input[type="number"]:not(.fig-fill-picker-dialog *),
+.figui3-scope input[type="password"]:not(.fig-fill-picker-dialog *),
+.figui3-scope textarea:not(.fig-fill-picker-dialog *),
+.figui3-scope .input:not(.fig-fill-picker-dialog *) {
   box-sizing: border-box;
   height: 24px;
   padding: 4px 8px;
@@ -45,22 +97,22 @@
   color: var(--color-text);
 }
 
-.figui3-scope input[type="text"]:hover,
-.figui3-scope input[type="number"]:hover,
-.figui3-scope input[type="password"]:hover,
-.figui3-scope textarea:hover {
+.figui3-scope input[type="text"]:not(.fig-fill-picker-dialog *):hover,
+.figui3-scope input[type="number"]:not(.fig-fill-picker-dialog *):hover,
+.figui3-scope input[type="password"]:not(.fig-fill-picker-dialog *):hover,
+.figui3-scope textarea:not(.fig-fill-picker-dialog *):hover {
   border-color: var(--color-border);
 }
 
-.figui3-scope input[type="text"]:focus,
-.figui3-scope input[type="number"]:focus,
-.figui3-scope input[type="password"]:focus,
-.figui3-scope textarea:focus {
+.figui3-scope input[type="text"]:not(.fig-fill-picker-dialog *):focus,
+.figui3-scope input[type="number"]:not(.fig-fill-picker-dialog *):focus,
+.figui3-scope input[type="password"]:not(.fig-fill-picker-dialog *):focus,
+.figui3-scope textarea:not(.fig-fill-picker-dialog *):focus {
   border-color: var(--color-border-selected);
   outline: none;
 }
 
-.figui3-scope select {
+.figui3-scope select:not(.fig-fill-picker-dialog *) {
   box-sizing: border-box;
   height: 24px;
   padding: 4px 8px;
@@ -71,6 +123,8 @@
 
 .figui3-scope fig-slider,
 .figui3-scope fig-input-angle,
+.figui3-scope fig-input-color,
+.figui3-scope fig-input-fill,
 .figui3-scope fig-input-text,
 .figui3-scope fig-input-number,
 .figui3-scope fig-dropdown,
@@ -78,4 +132,167 @@
 .figui3-scope fig-segmented-control {
   width: 100%;
   min-width: 0;
+}
+
+/*
+ * Promote layered FigUI3 styles for picker dialog elements.
+ * Because FigUI3 CSS is in layer(figui3) and Tailwind is unlayered,
+ * Tailwind's resets on input/button/select clobber the picker's internal
+ * elements. These unlayered rules re-apply FigUI3's intended styling.
+ */
+
+/* Shared typography for all interactive elements in the picker */
+.fig-fill-picker-dialog input,
+.fig-fill-picker-dialog select,
+.fig-fill-picker-dialog button {
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: 1rem;
+  color: var(--figma-color-text);
+}
+
+/* Text/number inputs inside the picker (hex, opacity, position, etc.) */
+.fig-fill-picker-dialog input[type="text"],
+.fig-fill-picker-dialog input[type="number"] {
+  box-sizing: border-box;
+  height: 24px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background-color: var(--figma-color-bg-secondary);
+  border: none;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.fig-fill-picker-dialog input[type="text"]:focus,
+.fig-fill-picker-dialog input[type="number"]:focus {
+  box-shadow: inset 0 0 0 1px var(--figma-color-border-selected);
+  outline: none;
+}
+
+.fig-fill-picker-dialog input::-webkit-outer-spin-button,
+.fig-fill-picker-dialog input::-webkit-inner-spin-button {
+  display: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Dropdowns (gradient type selector, etc.) */
+.fig-fill-picker-dialog select {
+  box-sizing: border-box;
+  height: 24px;
+  padding: 0 24px 0 8px;
+  border-radius: 5px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--figma-color-bg);
+  box-shadow: inset 0 0 0 1px var(--figma-color-border);
+  border: none;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.fig-fill-picker-dialog select:focus {
+  box-shadow: inset 0 0 0 1px var(--figma-color-border-selected);
+  outline: none;
+}
+
+/* Ensure fig-dropdown has room for the chevron pseudo-element */
+.fig-fill-picker-dialog fig-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+.fig-fill-picker-dialog fig-dropdown::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  mask-image: var(--icon-chevron);
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  background-color: var(--figma-color-icon);
+  pointer-events: none;
+}
+
+/* Buttons in the picker (add/remove stop, swap, etc.) */
+.fig-fill-picker-dialog button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Gradient header layout (type dropdown + center inputs + swap button) */
+.fig-fill-picker-dialog .fig-fill-picker-gradient-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.fig-fill-picker-dialog .fig-fill-picker-gradient-header fig-input-number {
+  width: 48px;
+}
+
+/* Stop rows: position + swatch + hex + opacity + remove */
+.fig-fill-picker-dialog .fig-fill-picker-gradient-stop-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.fig-fill-picker-dialog .fig-fill-picker-color-area {
+  aspect-ratio: 1;
+}
+
+/*
+ * Tailwind preflight sets `* { box-sizing: border-box }` which breaks
+ * FigUI3's `input[type="color"]` — it uses content-box with explicit
+ * padding so the swatch renders as a perfect square. Restore content-box
+ * and the original FigUI3 dimensions inside the picker dialog.
+ */
+.fig-fill-picker-dialog input[type="color"] {
+  box-sizing: content-box;
+  width: 0.875rem;
+  height: 0.875rem;
+  padding: 0.3125rem;
+  flex-shrink: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  border: 0;
+  margin: 0;
+  border-radius: var(--radius-medium, 0.25rem);
+  background-color: var(--figma-color-bg-secondary);
+  display: inline-grid;
+}
+
+.figui3-scope input[type="color"] {
+  box-sizing: content-box;
+  width: 0.875rem;
+  height: 0.875rem;
+  padding: 0.3125rem;
+  flex-shrink: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  border: 0;
+  margin: 0;
+  border-radius: var(--radius-medium, 0.25rem);
+  background-color: var(--figma-color-bg-secondary);
+  display: inline-grid;
 }

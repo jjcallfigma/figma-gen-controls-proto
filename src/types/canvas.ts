@@ -330,6 +330,9 @@ export interface CanvasObject {
 
   // Gen-AI generator state (serialized UISpec JSON)
   genAiSpec?: string;
+  // Gen-AI current control values (serialized JSON). Persisted so values
+  // survive popover close/reopen and modify-prompt re-runs.
+  genAiValues?: string;
 
   // Type-specific properties
   properties: CanvasObjectProperties;

@@ -329,6 +329,12 @@ export default function PropertyPopover({
         return;
       }
 
+      // NINTH: Protect FigUI3 fill picker dialog (hoisted to <body>)
+      if (target.closest('.fig-fill-picker-dialog')) {
+        if (debug) console.log("🛡️ Protected: FigUI3 fill picker dialog");
+        return;
+      }
+
       // MOUSEDOWN LOGIC: Close immediately on mousedown for canvas interactions
       if (e.type === "mousedown") {
         // Get canvas object under mouse (any object, selected or not)
@@ -354,7 +360,8 @@ export default function PropertyPopover({
           !popoverRef.current?.contains(target) &&
           !protectedZoneRef?.current?.contains(target) &&
           !target.closest('[data-property-popover="true"]') &&
-          !target.closest('[data-crop-mode="true"]'); // Don't close when interacting with crop mode overlay
+          !target.closest('[data-crop-mode="true"]') &&
+          !target.closest('.fig-fill-picker-dialog');
 
         if (isCanvasInteraction) {
           onClose();

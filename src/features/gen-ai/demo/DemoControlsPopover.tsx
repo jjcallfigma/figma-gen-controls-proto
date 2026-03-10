@@ -27,7 +27,7 @@ if (typeof window !== "undefined") {
 
 const POPOVER_WIDTH = 240;
 
-const FULL_WIDTH_TYPES = new Set(["3d-preview", "curve", "gradient-bar", "xy-pad", "range"]);
+const FULL_WIDTH_TYPES = new Set(["3d-preview", "curve", "gradient-bar", "fill", "xy-pad", "range"]);
 
 function FieldRow({
   label,
@@ -89,6 +89,7 @@ function getDefaultValue(control: UIControl): unknown {
     case "range":
       return props.defaultValue ?? { low: 0, high: 100 };
     case "gradient-bar":
+    case "fill":
       return props.stops ?? [];
     case "curve":
       return props.defaultValue ?? [0.42, 0, 0.58, 1];
@@ -275,11 +276,12 @@ function renderControl(
         />
       );
     case "gradient-bar":
+    case "fill":
       return (
         <GradientBar
           label={label}
           value={value as { id: string; position: number; color: string }[]}
-          onChange={onChange as (v: { id: string; position: number; color: string }[]) => void}
+          onChange={onChange}
         />
       );
     case "curve":

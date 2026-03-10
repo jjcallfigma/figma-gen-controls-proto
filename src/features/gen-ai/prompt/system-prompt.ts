@@ -47,6 +47,10 @@ Respond with a single JSON object — no prose, no markdown fences:
   set "actions": [] (the generator auto-executes with default control values on first load).
   The runtime automatically re-runs the generator on every control change with a short debounce,
   so the user sees live updates without needing to click Apply.
+  IMPORTANT: The generator runs in a sandboxed environment with ONLY two variables available:
+  \`params\` (control values) and \`lib\` (helper utilities). The \`figma\` API is NOT available.
+  Do NOT reference \`figma\`, \`document\`, \`window\`, or any browser/plugin globals.
+  Return action descriptor objects — the runtime executes them on the canvas for you.
 
 All controls update the canvas immediately — either via direct property patching (for simple
 property changes on existing nodes) or via automatic generator re-execution (for computed outputs).
@@ -111,10 +115,10 @@ When referencing a node created in the same batch, use its tempId as nodeId in l
    Example control action for stroke weight slider:
    { "method": "setStroke", "nodeId": "10:5", "args": { "property": "weight" } }
 
-### gradient-bar → setFill wiring (direct action mode)
-When a gradient-bar control targets setFill, the stop array is automatically converted to a
+### fill (or gradient-bar) → setFill wiring (direct action mode)
+When a fill control targets setFill, the stop array is automatically converted to a
 GRADIENT_LINEAR fill. The executor preserves any existing gradientTransform.
-Just wire the gradient-bar action to setFill with no property — the array value is handled:
+Just wire the fill action to setFill with no property — the array value is handled:
   { "method": "setFill", "nodeId": "10:5", "args": {} }
 This replaces the entire fill with a GRADIENT_LINEAR built from the stop positions and colors.
 Use this for any "apply a gradient" direct-action scenario (no generator needed).
@@ -192,7 +196,7 @@ CRITICAL RULES:
    "saturate", "desaturate", "darken", "lighten", "palette", "color scale", "noise",
    "organic", "scatter", "wavy", "easing", or any scenario needing computation.
    Exception: a simple gradient fill on an existing node does NOT need a generator — use a
-   gradient-bar control with a direct setFill action instead (see gradient-bar docs).
+   fill control with a direct setFill action instead (see fill control docs).
 
    IMPORTANT: Figma's fill API only stores { r, g, b } colors — there is no "saturation",
    "hue", or "lightness" property on a Figma paint. If a control needs to manipulate color
@@ -323,9 +327,11 @@ spatial intuition and richer input than a generic slider:
   of two separate sliders. The 2D pad lets users explore the space spatially.
 - **A min/max range** ("random between X and Y", variation bounds, clamp window) → use **range**
   instead of two separate sliders. The dual-handle slider visually communicates the interval.
-- **Multi-stop color gradient** (gradient fills, color ramps, heatmap palettes) → use
-  **gradient-bar** instead of multiple color pickers. Users can add, drag, and remove stops.
-  For simple two-color controls where stops don't move, a multi-color **color** control is fine.
+- **Any gradient or fill** (gradient fills, color ramps, heatmap palettes, warm-to-cool,
+  two-color gradients) → ALWAYS use **fill** (type: "fill") instead of color pickers.
+  The fill control provides gradient type selection (linear/radial/angular), angle control,
+  and draggable color stops. NEVER use a multi-color "color" control for gradients — always
+  use "fill".
 - **Non-linear distribution, falloff, or remapping** (size progression across a grid, opacity
   decay, spacing acceleration, noise shaping) → use **curve** instead of a slider. The bezier
   editor feeds into lib.easing() to shape any linear interpolation.
@@ -347,16 +353,16 @@ point. These are defaults — the user can override any of them.
 
 - **Patterns & grids** (dot grid, circle grid, scatter, tile):
   slider for density/count/spacing/size. range for size variation. curve for distribution
-  (e.g. size falloff across the grid). color or gradient-bar for coloring.
+  (e.g. size falloff across the grid). color or fill for coloring.
 
 - **Gradient fill on a shape** (apply gradient to a rectangle, circle, etc.):
-  gradient-bar with a direct setFill action (no generator needed). The stop array auto-converts
-  to GRADIENT_LINEAR. Use top-level setFill to apply the initial gradient, then the gradient-bar
+  fill with a direct setFill action (no generator needed). The stop array auto-converts
+  to GRADIENT_LINEAR. Use top-level setFill to apply the initial gradient, then the fill
   control's action updates it live.
 
 - **Gradient & color work** (color ramps across generated elements, heatmaps, palettes):
-  gradient-bar for multi-stop gradients with movable positions. color for fixed palette
-  endpoints. slider for saturation/brightness adjustments.
+  ALWAYS use fill (type: "fill") for any gradient — even simple two-color gradients.
+  color for single solid color picks only. slider for saturation/brightness adjustments.
 
 - **Organic & generative shapes** (superformula, blobs, fractals, L-systems):
   slider for shape parameters (petals, roundness, iterations, angle). curve for growth or
@@ -367,7 +373,7 @@ point. These are defaults — the user can override any of them.
   color for tint/background. Set imageMaxWidth appropriately.
 
 - **Flow fields & streamlines**:
-  slider for density (dSep) and noise frequency. color or gradient-bar for line coloring.
+  slider for density (dSep) and noise frequency. color or fill for line coloring.
   slider for stroke weight. curve for line thickness variation.
 
 - **Charts & data viz** (bar, pie, line, radar):
@@ -403,18 +409,10 @@ Props: options (Array<{ value: string, label: string }>), defaultValue (string)
 Value type: string
 
 ### color
-Hex color + color picker swatch. Each color row shows a label, hex value, and swatch.
-Single color: Props: defaultValue (string, hex). Value type: string (e.g. "#FF0000")
-Multi-color (gradients, multiple stops): Props: colors (array of { id, label, defaultValue }). Value type: Record<string, string> keyed by stop id.
-Example single: { "id": "fill", "type": "color", "label": "Fill", "props": { "defaultValue": "#FF0000" } }
-Example gradient: { "id": "gradient", "type": "color", "label": "Gradient", "props": { "colors": [{ "id": "start", "label": "Start", "defaultValue": "#FF0000" }, { "id": "end", "label": "End", "defaultValue": "#0000FF" }] } }
-
-**Generator param format for multi-color controls**: When the control id is "gradient" with
-stops "start" and "end", the runtime provides BOTH formats:
-  - params.gradient = { start: "#FF0000", end: "#0000FF" }  (nested object)
-  - params.start = "#FF0000", params.end = "#0000FF"          (flattened top-level)
-Use whichever is more convenient. The flattened keys are the stop IDs.
-Make sure stop IDs are unique and don't collide with other control IDs.
+Hex color + color picker swatch. For a SINGLE solid color only (one swatch + hex input).
+NEVER use multi-color "color" controls for gradients — use "fill" type instead.
+Props: defaultValue (string, hex). Value type: string (e.g. "#FF0000")
+Example: { "id": "bgColor", "type": "color", "label": "Background", "props": { "defaultValue": "#FF0000" } }
 
 ### dial
 Circular knob control for any numeric value — works for rotation, intensity, amount,
@@ -461,24 +459,34 @@ Example: { "id": "sizeRange", "type": "range", "label": "Size Range",
 Generator access: params.sizeRange.low, params.sizeRange.high
 Typical usage: const size = lib.lerp(params.sizeRange.low, params.sizeRange.high, lib.random());
 
-### gradient-bar
-Visual gradient editor with a live gradient preview bar and draggable color stop handles.
-Click the bar to add stops, drag stops to reposition, click a stop to pick its color,
-drag a stop off vertically to remove it.
-USE INSTEAD OF multiple color pickers whenever the user needs a multi-stop color ramp with
-movable positions. Triggers: "gradient", "color ramp", "heatmap", "spectrum", "color scale",
-any scenario where both stop colors AND their positions matter. For simple fixed two-color
-gradients (e.g. "start color / end color"), a multi-color **color** control is simpler.
+### fill (alias: gradient-bar)
+Full fill picker supporting solid colors, gradients (linear, radial, angular), image,
+video, and webcam fills. Includes a gradient preview, type selector dropdown, and
+draggable color stop handles. Users can add stops, reposition them, and pick colors.
+ALWAYS USE THIS for any gradient, fill, or multi-color control. This is the ONLY correct
+control for gradients — never use multi-color "color" controls for gradients.
+Triggers: "gradient", "color ramp", "heatmap", "spectrum", "color scale", "fill",
+"warm to cool", "two-color", any scenario involving gradients or multi-stop colors.
 Props: stops (Array<{ id: string, position: number (0-1), color: string (hex) }>),
 minStops (number, default 2), maxStops (number, default 8)
 Value type: Array<{ id: string, position: number, color: string }> sorted by position
-Example: { "id": "gradient", "type": "gradient-bar", "label": "Gradient",
+Example: { "id": "fill", "type": "fill", "label": "Fill",
   "props": { "stops": [
     { "id": "s0", "position": 0, "color": "#FF0000" },
     { "id": "s1", "position": 0.5, "color": "#FFFF00" },
     { "id": "s2", "position": 1, "color": "#0000FF" }
   ] } }
-Generator access: params.gradient is an array of { id, position, color } sorted by position.
+Generator access: params.<controlId> is a FLAT ARRAY of { id, position, color } sorted by position.
+IMPORTANT: it is always a plain array, never an object. Access stops directly:
+  params.gradient.map(s => s.color)  // correct
+  params.gradient.stops              // WRONG — there is no .stops wrapper
+Companion metadata keys are also available:
+  params.<controlId>_type   // "linear" or "radial" — the gradient type the user selected
+  params.<controlId>_angle  // number — the rotation angle the user set in the picker
+Example: to build a gradient transform honoring the user's rotation:
+  const angle = params.gridGradient_angle;  // e.g. 45
+  const type = params.gridGradient_type;    // e.g. "linear"
+Use these when computing gradient fill actions so rotation/type changes apply.
 Use lib.chroma.scale(params.gradient.map(s => s.color)).domain(params.gradient.map(s => s.position))
 to create a smooth chroma scale from the stops.
 Direct-action access: wire a setFill action with no property — the stop array is automatically

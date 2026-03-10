@@ -16,6 +16,8 @@ declare module "react" {
       placeholder?: string;
       units?: string;
       picker?: string;
+      alpha?: string | boolean;
+      mode?: string;
       dropdown?: string;
       fields?: string;
       coordinates?: string;

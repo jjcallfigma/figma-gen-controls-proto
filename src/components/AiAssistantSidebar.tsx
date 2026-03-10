@@ -5,6 +5,7 @@ import { useDesignChat } from "@/core/hooks/useDesignChat";
 import { ChatMessage as DesignChatBubble } from "@/components/chat";
 import { useMakeChat } from "@/core/hooks/useMakeChat";
 import { useAppStore, useSelectedObjects } from "@/core/state/store";
+import { isGenAiIntent } from "@/features/gen-ai/utils/intent";
 import { renderMarkdown } from "@/core/utils/renderMarkdown";
 import { MakeChatMessage } from "@/types/canvas";
 import React, {
@@ -235,6 +236,7 @@ function MakeChatView({
           style={{
             borderColor: "var(--color-border)",
             backgroundColor: "var(--color-bg)",
+            lineHeight: "20px",
           }}
         >
           <textarea
@@ -257,7 +259,6 @@ function MakeChatView({
               fontFamily: "'Inter', sans-serif",
               fontWeight: 400,
               fontSize: "13px",
-              lineHeight: "20px",
               color: "var(--color-text)",
               minHeight: "68px",
               maxHeight: "200px",
@@ -844,18 +845,22 @@ export default function AiAssistantSidebar({
     const handler = async (e: Event) => {
       const detail = (e as CustomEvent).detail as { message: string; frameId: string } | undefined;
       if (!detail?.message || !detail?.frameId) return;
+
+      // Restore the existing spec/frame context so sendPrompt knows it's a
+      // modify operation (rewriteActionsForReapply targets the existing frame
+      // instead of creating a new one).
+      const obj = useAppStore.getState().objects[detail.frameId];
+      if (obj?.genAiSpec) {
+        genAI.restoreFromFrame(detail.frameId, obj.genAiSpec);
+      }
+
       await genAI.sendPrompt(detail.message);
     };
     window.addEventListener("gen-ai-modify-send", handler);
     return () => window.removeEventListener("gen-ai-modify-send", handler);
   }, [genAI]);
 
-  const isGenAiIntent = useCallback((text: string): boolean => {
-    const lower = text.toLowerCase();
-    return /\b(create|generate|make|build|draw)\b.*\b(grid|pattern|dots|circle|rectangle|square|ellipse|shape|line|triangle|polygon|sphere|cube|fractal|tree|voronoi|halftone|palette|swatches|gradient|spiral|scatter|wavy|noise|organic|mosaic|blob|attractor|metaball|turing|reaction.?diffusion|circle.?pack|dla|cellular.?automata|wave.?function|qr|chart|bar.?chart|pie|dither|posterize|flow.?field|wireframe|3d|superformula|rough|sketch|lsystem|l-system)\b/i.test(lower)
-      || /\b(generate|create|make|build)\b.*\bwith\b.*\b(controls?|sliders?|parameters?)\b/i.test(lower)
-      || /\b(generative|procedural|parametric|computational)\b/i.test(lower);
-  }, []);
+  // isGenAiIntent is imported from @/features/gen-ai/utils/intent
 
   const handleSlashCommand = useCallback((text: string): boolean => {
     const cmd = text.toLowerCase().trim();
@@ -892,15 +897,19 @@ export default function AiAssistantSidebar({
     // If the selected object has genAiSpec, always route through gen-ai
     const selectedIds = useAppStore.getState().selection.selectedIds ?? [];
     const objects = useAppStore.getState().objects;
-    const selectedHasGenAi = selectedIds.length === 1 && objects[selectedIds[0]]?.genAiSpec;
+    const selectedObj = selectedIds.length === 1 ? objects[selectedIds[0]] : null;
+    const selectedHasGenAi = !!(selectedObj?.genAiSpec);
 
     if (selectedHasGenAi || isGenAiIntent(text)) {
       designChat.setMessage("");
+      if (selectedHasGenAi) {
+        genAI.restoreFromFrame(selectedIds[0], selectedObj!.genAiSpec!);
+      }
       await genAI.sendPrompt(text);
     } else {
       designChat.handleSend();
     }
-  }, [designChat, genAI, isGenAiIntent, handleSlashCommand]);
+  }, [designChat, genAI, handleSlashCommand]);
 
   const handleDesignChatKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -1229,6 +1238,7 @@ export default function AiAssistantSidebar({
                 style={{
                   borderColor: "var(--color-border)",
                   backgroundColor: "var(--color-bg)",
+                  lineHeight: "20px",
                 }}
               >
                 {/* Live selection pill — always reflects current canvas selection */}
@@ -1262,7 +1272,6 @@ export default function AiAssistantSidebar({
                     fontFamily: "'Inter', sans-serif",
                     fontWeight: 400,
                     fontSize: "13px",
-                    lineHeight: "20px",
                     color: "var(--color-text)",
                     minHeight: "68px",
                     maxHeight: "200px",

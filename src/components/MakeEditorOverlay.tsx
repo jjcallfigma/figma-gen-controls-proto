@@ -22,6 +22,7 @@ import {
 } from "@codesandbox/sandpack-react";
 import { nanoid } from "nanoid";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isGenAiIntent } from "@/features/gen-ai/utils/intent";
 import { Icon16Close } from "./icons/icon-16-close";
 import { Icon24ChevronLeftLarge } from "./icons/icon-24-chevron-left-large";
 import { Icon24Close } from "./icons/icon-24-close";
@@ -560,6 +561,27 @@ export default function MakeEditorOverlay() {
     // Reset auto-fix counter on every new user message
     setAutoFixCount(0);
 
+    // For user-typed messages (no overrideMessage): detect gen-ai intent and
+    // re-route through the gen-ai pipeline if the object has genAiSpec or the
+    // message looks like a controls/parametric request.
+    if (!overrideMessage) {
+      const msgText = message.trim();
+      if (!msgText) return;
+
+      const hasGenAiSpec = !!(makeObject?.genAiSpec);
+      if (hasGenAiSpec || isGenAiIntent(msgText)) {
+        const frameId = makeEditor.objectId ?? null;
+        if (frameId) {
+          window.dispatchEvent(
+            new CustomEvent("gen-ai-modify-send", {
+              detail: { message: msgText, frameId },
+            }),
+          );
+          return;
+        }
+      }
+    }
+
     // If an element is selected in inspect mode, prepend context about it
     if (!overrideMessage && inspectorSelection && currentCode) {
       const node = parsedJSX.nodeMap.get(inspectorSelection.nodeId);
@@ -1073,6 +1095,7 @@ export default function MakeEditorOverlay() {
             style={{
               borderColor: "var(--color-border)",
               backgroundColor: "var(--color-bg)",
+              lineHeight: "20px",
             }}
           >
             {/* Selected element pill */}
@@ -1091,7 +1114,7 @@ export default function MakeEditorOverlay() {
                   <button
                     onClick={() => setInspectorSelection(null)}
                     className="ml-0.5 hover:opacity-70"
-                    style={{ color: "#3b82f6", lineHeight: 1 }}
+                    style={{ color: "#3b82f6", lineHeight: "1" }}
                   >
                     <Icon16Close />
                   </button>
@@ -1110,7 +1133,6 @@ export default function MakeEditorOverlay() {
                 fontFamily: "'Inter', sans-serif",
                 fontWeight: 400,
                 fontSize: "13px",
-                lineHeight: "20px",
                 color: "var(--color-text)",
                 minHeight: "68px",
                 maxHeight: "200px",

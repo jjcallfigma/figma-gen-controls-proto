@@ -1,8 +1,11 @@
 import {
   CanvasObject,
   Fill,
+  GradientStop,
   ImageAdjustments,
   ImageFill,
+  LinearGradientFill,
+  RadialGradientFill,
   SolidFill,
 } from "@/types/canvas";
 
@@ -127,6 +130,24 @@ export function removeFill(object: CanvasObject, fillId: string): CanvasObject {
   };
 }
 
+function gradientStopToCss(stop: GradientStop): string {
+  const alpha = stop.opacity ?? 1;
+  if (alpha < 1) {
+    return `${addOpacityToColor(stop.color, alpha)} ${stop.position * 100}%`;
+  }
+  return `${stop.color} ${stop.position * 100}%`;
+}
+
+function gradientFillToCss(fill: LinearGradientFill | RadialGradientFill): string {
+  const stops = fill.stops.map(gradientStopToCss).join(", ");
+  if (fill.type === "linear-gradient") {
+    return `linear-gradient(${fill.angle}deg, ${stops})`;
+  }
+  const cx = (fill.centerX ?? 0.5) * 100;
+  const cy = (fill.centerY ?? 0.5) * 100;
+  return `radial-gradient(circle at ${cx}% ${cy}%, ${stops})`;
+}
+
 // CSS generation result interface
 export interface FillCssResult {
   backgroundImage?: string;
@@ -153,9 +174,12 @@ export function fillToCss(fill: Fill): string {
     return solidFill.color;
   }
 
+  if (fill.type === "linear-gradient" || fill.type === "radial-gradient") {
+    return gradientFillToCss(fill as LinearGradientFill | RadialGradientFill);
+  }
+
   if (fill.type === "image") {
     const imageFill = fill as ImageFill;
-    // For simple usage, just return the URL - advanced properties handled by fillToCssProperties
     return `url('${imageFill.imageUrl}')`;
   }
 
@@ -188,6 +212,16 @@ export function fillToCssProperties(
       result.needsBackgroundWrapper = true;
     }
 
+    return result;
+  }
+
+  if (fill.type === "linear-gradient" || fill.type === "radial-gradient") {
+    const css = gradientFillToCss(fill as LinearGradientFill | RadialGradientFill);
+    const result: FillCssResult = { backgroundImage: css };
+    if (fill.blendMode && fill.blendMode !== "normal") {
+      result.mixBlendMode = fill.blendMode;
+      result.needsBackgroundWrapper = true;
+    }
     return result;
   }
 
@@ -519,7 +553,9 @@ export function fillArrayToCss(fills: Fill[]): string {
           fill.opacity < 1
             ? addOpacityToColor(solidFill.color, fill.opacity)
             : solidFill.color;
-        return `linear-gradient(${color}, ${color})`; // Solid color as gradient
+        return `linear-gradient(${color}, ${color})`;
+      } else if (fill.type === "linear-gradient" || fill.type === "radial-gradient") {
+        return gradientFillToCss(fill as LinearGradientFill | RadialGradientFill);
       } else if (fill.type === "image") {
         const imageFill = fill as ImageFill;
         return `url('${imageFill.imageUrl}')`;
@@ -600,6 +636,11 @@ export function getEffectiveBackgroundStyles(
             ? addOpacityToColor(solidFill.color, fill.opacity)
             : solidFill.color;
         backgroundImages.push(`linear-gradient(${color}, ${color})`);
+        backgroundSizes.push("auto");
+        backgroundRepeats.push("no-repeat");
+        backgroundPositions.push("0% 0%");
+      } else if (fill.type === "linear-gradient" || fill.type === "radial-gradient") {
+        backgroundImages.push(gradientFillToCss(fill as LinearGradientFill | RadialGradientFill));
         backgroundSizes.push("auto");
         backgroundRepeats.push("no-repeat");
         backgroundPositions.push("0% 0%");
