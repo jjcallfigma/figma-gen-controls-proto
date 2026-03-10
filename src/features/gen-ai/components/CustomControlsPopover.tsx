@@ -6,6 +6,8 @@ import type { UISpec, UIControl, ActionDescriptor } from "../types";
 import { compileGenerator, executeGenerator } from "../runtime/codegen";
 import { executeActions } from "../adapter/action-adapter";
 import "./figui3-scoped.css";
+import PropertyPopover from "@/components/ui/PropertyPopover";
+import PropertyPopoverHeader from "@/components/ui/PropertyPopoverHeader";
 import {
   Slider,
   Toggle,
@@ -29,7 +31,10 @@ if (typeof window !== "undefined") {
 interface Props {
   spec: UISpec;
   frameId: string;
-  anchorRef: RefObject<HTMLButtonElement | null>;
+  isOpen: boolean;
+  position: { x: number; y: number };
+  onPositionChange: (position: { x: number; y: number }) => void;
+  protectedZoneRef?: RefObject<HTMLElement | null>;
   onClose: () => void;
 }
 
@@ -100,7 +105,7 @@ function flattenColorStops(params: Record<string, unknown>): Record<string, unkn
   return { ...params };
 }
 
-export function CustomControlsPopover({ spec, frameId, anchorRef, onClose }: Props) {
+export function CustomControlsPopover({ spec, frameId, isOpen, position, onPositionChange, protectedZoneRef, onClose }: Props) {
   const [values, setValues] = useState<Record<string, unknown>>(() => {
     const defaults: Record<string, unknown> = {};
     for (const c of spec.controls) {
@@ -248,41 +253,18 @@ export function CustomControlsPopover({ spec, frameId, anchorRef, onClose }: Pro
   }, [frameId]);
 
   return (
-    <div
-      className="fixed z-50 rounded-lg shadow-xl overflow-hidden"
-      style={{
-        backgroundColor: "var(--color-bg-elevated)",
-        border: "1px solid var(--color-border)",
-        width: 280,
-        maxHeight: 500,
-        right: 20,
-        top: 200,
-      }}
+    <PropertyPopover
+      isOpen={isOpen}
+      onClose={onClose}
+      position={position}
+      onPositionChange={onPositionChange}
+      width={280}
+      protectedZoneRef={protectedZoneRef}
     >
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-3 py-2"
-        style={{ borderBottom: "1px solid var(--color-border)" }}
-      >
-        <span className="text-[12px] font-semibold" style={{ color: "var(--color-text)" }}>
-          Controls
-        </span>
-        <button
-          onClick={onClose}
-          className="w-5 h-5 flex items-center justify-center rounded hover:bg-[var(--color-bg-secondary)]"
-          style={{ color: "var(--color-text-secondary)", border: "none", backgroundColor: "transparent" }}
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" strokeWidth="1.5">
-            <path d="M1 1l8 8M9 1l-8 8" />
-          </svg>
-        </button>
-      </div>
+      <PropertyPopoverHeader title="Controls" onClose={onClose} />
 
       {/* Controls */}
-      <div
-        className="overflow-y-auto px-2 py-2"
-        style={{ maxHeight: 400 }}
-      >
+      <div className="overflow-y-auto px-2 py-2" style={{ maxHeight: 400 }}>
         <div className="flex flex-col gap-1">
           {spec.controls.map((control) => (
             <FieldRow key={control.id} label={control.label || control.id}>
@@ -295,24 +277,16 @@ export function CustomControlsPopover({ spec, frameId, anchorRef, onClose }: Pro
       </div>
 
       {/* Modify controls link */}
-      <div
-        className="px-3 py-2 flex justify-center"
-        style={{ borderTop: "1px solid var(--color-border)" }}
-      >
+      <div className="px-3 py-2 flex justify-center border-t">
         <button
           onClick={handleModifyControls}
           className="text-[11px] font-medium hover:underline"
-          style={{
-            color: "var(--color-text-brand, #7B61FF)",
-            border: "none",
-            backgroundColor: "transparent",
-            cursor: "pointer",
-          }}
+          style={{ color: "var(--color-text-brand, #7B61FF)", cursor: "pointer" }}
         >
           Modify controls
         </button>
       </div>
-    </div>
+    </PropertyPopover>
   );
 }
 

@@ -8,12 +8,15 @@ import { CustomControlsPopover } from "./CustomControlsPopover";
 import { Icon24Plus } from "@/components/icons/icon-24-plus";
 import { Icon24MinusSmall } from "@/components/icons/icon-24-minus-small";
 
+const POPOVER_WIDTH = 280;
+
 interface Props {
   object: CanvasObject;
 }
 
 export function CustomControlsSection({ object }: Props) {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
   const sectionRef = useRef<HTMLDivElement>(null);
   const iconButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -39,6 +42,21 @@ export function CustomControlsSection({ object }: Props) {
   }, [object.id, object.genAiSpec]);
 
   const hasControls = spec && spec.controls.length > 0;
+
+  const openPopover = useCallback(() => {
+    if (!sectionRef.current) return;
+    const rect = sectionRef.current.getBoundingClientRect();
+    setPopoverPosition({ x: rect.left - POPOVER_WIDTH, y: rect.top });
+    setIsPopoverOpen(true);
+  }, []);
+
+  const togglePopover = useCallback(() => {
+    if (isPopoverOpen) {
+      setIsPopoverOpen(false);
+    } else {
+      openPopover();
+    }
+  }, [isPopoverOpen, openPopover]);
 
   return (
     <div ref={sectionRef}>
@@ -67,7 +85,7 @@ export function CustomControlsSection({ object }: Props) {
             {/* Icon button — opens the controls popover */}
             <button
               ref={iconButtonRef}
-              onClick={() => setIsPopoverOpen((v) => !v)}
+              onClick={togglePopover}
               className="w-6 h-6 flex items-center justify-center rounded-[5px] hover:bg-secondary flex-shrink-0"
               style={{ color: "var(--color-text-secondary)" }}
               title="Edit controls"
@@ -104,11 +122,14 @@ export function CustomControlsSection({ object }: Props) {
       )}
 
       {/* Popover with all controls */}
-      {isPopoverOpen && hasControls && spec && (
+      {hasControls && spec && (
         <CustomControlsPopover
           spec={spec}
           frameId={object.id}
-          anchorRef={iconButtonRef}
+          isOpen={isPopoverOpen}
+          position={popoverPosition}
+          onPositionChange={setPopoverPosition}
+          protectedZoneRef={sectionRef}
           onClose={() => setIsPopoverOpen(false)}
         />
       )}
