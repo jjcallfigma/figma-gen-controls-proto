@@ -87,11 +87,15 @@ export function applyEventToState(
     case "object.created": {
       const { object } = event.payload;
       draft.objects[object.id] = object;
-      draft.objectIds.push(object.id);
+      if (!draft.objectIds.includes(object.id)) {
+        draft.objectIds.push(object.id);
+      }
 
-      // Add object to current page
       if (draft.currentPageId && draft.pages[draft.currentPageId]) {
-        draft.pages[draft.currentPageId].objectIds.push(object.id);
+        const pageIds = draft.pages[draft.currentPageId].objectIds;
+        if (!pageIds.includes(object.id)) {
+          pageIds.push(object.id);
+        }
       }
 
       // Component sync is now handled by the holistic observer in store.ts

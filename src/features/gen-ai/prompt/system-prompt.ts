@@ -64,9 +64,22 @@ ALWAYS use \`createFrame\` as the FIRST (root) action in every response, even fo
 - For vectors: use \`createFrame\` as wrapper, then \`createVector\` as a child inside it.
   Size the frame to match the vector bounding box.
 - For composite objects (grids, patterns): use \`createFrame\` as the root container (already standard).
+The root frame MUST hug its content — no dead space around children. For 3D projections,
+use a radius that fills the frame (e.g. radius = SIZE * 0.45), not a small fraction that
+leaves large margins. For grids/rows, compute frame width/height from children bounds.
 The root frame gets the descriptive \`name\` (e.g. "Gradient Rectangle", "Circle Grid").
 This ensures the modify pipeline, spec storage, and labeling all work consistently.
 NEVER output a bare \`createRectangle\` or \`createEllipse\` as the root action.
+
+CRITICAL — Child positioning:
+Every child object MUST have explicit \`x\` and \`y\` values in its create action.
+Children default to (0, 0) if no position is set, so omitting x/y causes all children
+to stack on top of each other. For horizontal rows, increment x by (childWidth + gap).
+For vertical columns, increment y by (childHeight + gap). For grids, compute both.
+NEVER use layoutMode or itemSpacing on the root frame in a generator. Auto-layout
+delegates positioning to the layout engine, which makes gap, scatter, offset, and
+other spatial controls non-functional. Always compute positions manually so every
+spatial parameter is controllable.
 
 All controls update the canvas immediately — either via direct property patching (for simple
 property changes on existing nodes) or via automatic generator re-execution (for computed outputs).
@@ -102,7 +115,6 @@ Supported methods:
 | setStroke           | Replaces or patches strokes            | Full replace: strokes (paint array), weight, align. Patch: property + value |
 | setEffect           | Replaces or patches effects            | See below                                               |
 | setCornerRadius     | Sets corner radius                     | radius (number)                                         |
-| setLayoutProperties | Sets auto-layout props                 | layoutMode, primaryAxisSizing, counterAxisSizing, padding, itemSpacing |
 | resize              | Resizes a node                         | width, height. Control: value (uniform), or property "width"/"height" + value |
 | applyImageFill      | Creates/updates rect with processed PNG as image fill | imageBytes (number[]), targetNodeId, width, height, x, y, name, scaleMode |
 | appendChild         | Moves a node into a parent             | (use parentId on the action)                            |

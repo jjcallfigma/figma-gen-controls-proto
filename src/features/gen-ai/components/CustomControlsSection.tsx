@@ -31,25 +31,29 @@ export function CustomControlsSection({ object }: Props) {
   })();
 
   const handleDetach = useCallback(() => {
+    setIsPopoverOpen(false);
     useAppStore.getState().dispatch({
       type: "object.updated",
       payload: {
         id: object.id,
-        changes: { genAiSpec: undefined },
-        previousValues: { genAiSpec: object.genAiSpec },
+        changes: { genAiSpec: undefined, genAiValues: undefined },
+        previousValues: { genAiSpec: object.genAiSpec, genAiValues: object.genAiValues },
       },
     });
-    setIsPopoverOpen(false);
-  }, [object.id, object.genAiSpec]);
+  }, [object.id, object.genAiSpec, object.genAiValues]);
 
   const hasControls = spec && spec.controls.length > 0;
 
   const openPopover = useCallback(() => {
     if (!sectionRef.current) return;
     const rect = sectionRef.current.getBoundingClientRect();
-    setPopoverPosition({ x: rect.left - POPOVER_WIDTH, y: rect.top });
+    const controlCount = spec?.controls.length ?? 0;
+    const estimatedHeight = 48 + controlCount * 40 + 16;
+    const maxY = window.innerHeight - estimatedHeight - 8;
+    const y = Math.max(8, Math.min(rect.top, maxY));
+    setPopoverPosition({ x: rect.left - POPOVER_WIDTH, y });
     setIsPopoverOpen(true);
-  }, []);
+  }, [spec]);
 
   const togglePopover = useCallback(() => {
     if (isPopoverOpen) {

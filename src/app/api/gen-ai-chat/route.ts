@@ -96,16 +96,25 @@ export async function POST(req: NextRequest) {
                   );
                 }
 
-                if (data.type === "message_delta" && data.usage) {
-                  controller.enqueue(
-                    new TextEncoder().encode(
-                      sseEvent({
-                        type: "usage",
-                        inputTokens: data.usage.input_tokens,
-                        outputTokens: data.usage.output_tokens,
-                      }),
-                    ),
-                  );
+                if (data.type === "message_delta") {
+                  if (data.delta?.stop_reason === "max_tokens") {
+                    controller.enqueue(
+                      new TextEncoder().encode(
+                        sseEvent({ type: "error", message: "Response truncated: model hit max_tokens. Try a simpler prompt or fewer controls." }),
+                      ),
+                    );
+                  }
+                  if (data.usage) {
+                    controller.enqueue(
+                      new TextEncoder().encode(
+                        sseEvent({
+                          type: "usage",
+                          inputTokens: data.usage.input_tokens,
+                          outputTokens: data.usage.output_tokens,
+                        }),
+                      ),
+                    );
+                  }
                 }
               } catch {
                 // skip malformed SSE lines

@@ -209,6 +209,17 @@ function buildCanvasContext() {
   const { objects, pages, pageIds, currentPageId, selection } = state as any;
 
   // Serialize objects to plain data (strip functions, proxies, etc.)
+  // Strip base64 image URLs from fills to avoid sending megabytes of data
+  const stripImageData = (fills: any[] | undefined) => {
+    if (!fills) return fills;
+    return fills.map((f: any) => {
+      if (f.type === "image" && typeof f.imageUrl === "string" && f.imageUrl.startsWith("data:")) {
+        return { ...f, imageUrl: "[base64 image]" };
+      }
+      return f;
+    });
+  };
+
   const plainObjects: Record<string, any> = {};
   for (const [id, obj] of Object.entries(objects)) {
     const o = obj as any;
@@ -222,7 +233,7 @@ function buildCanvasContext() {
       height: o.height,
       parentId: o.parentId,
       childIds: o.childIds || [],
-      fills: o.fills,
+      fills: stripImageData(o.fills),
       strokes: o.strokes,
       strokeWidth: o.strokeWidth,
       opacity: o.opacity,

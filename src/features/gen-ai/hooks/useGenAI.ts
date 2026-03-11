@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useAppStore } from "@/core/state/store";
-import { executeActions, type ExecuteResult } from "../adapter/action-adapter";
+import { executeActions, shrinkFrameToChildren, type ExecuteResult } from "../adapter/action-adapter";
 import { buildSelectionContext } from "../adapter/selection-adapter";
 import { composePrompt, parseLLMResponse, type ApiChatMessage } from "../prompt/prompt-composer";
 import { compileGenerator, executeGenerator } from "../runtime/codegen";
@@ -285,7 +285,7 @@ export function useGenAI() {
         /\b(grid|pattern|dots|circle|generate|create.*\d|layout|arrange|distribute|carousel|randomize|gradient|spiral|scatter|wavy|noise|organic|palette|color.*scale|saturate|desaturate|darken|lighten|hue.*shift|3d|sphere|cube|fractal|tree|qr|halftone|dither|posterize|flow.*field|chart|voronoi|rough|sketch|mosaic|superformula|blob|turing|reaction.*diffusion|attractor|metaballs|circle.*pack|dla|cellular.*automata|wave.*function)\b/i.test(
           promptText,
         );
-      const maxTokens = generatorLikely ? 8192 : 4096;
+      const maxTokens = generatorLikely ? 16384 : 4096;
 
       // Call the API with streaming
       const controller = new AbortController();
@@ -463,6 +463,12 @@ export function useGenAI() {
       // Track the root object (frame or first created object)
       if (!existingFrameId) {
         rootFrameIdRef.current = result.rootFrameId ?? result.createdIds[0];
+      }
+
+      // Shrink root frame to hug its children (eliminates dead space)
+      const hugTargetId = rootFrameIdRef.current;
+      if (hugTargetId) {
+        shrinkFrameToChildren(hugTargetId);
       }
 
       // On first creation, center the root object in the viewport and scroll to it

@@ -31,13 +31,12 @@ export function FigAngle({ value, onChange, min = -180, max = 180 }: FigAnglePro
 
   useEffect(() => {
     const el = ref.current;
-    if (el) el.setAttribute("value", String(safeValue));
+    if (el) (el as unknown as { value: number }).value = safeValue;
   }, [safeValue]);
 
   return (
     <fig-input-angle
       ref={ref}
-      value={String(safeValue)}
       min={String(min)}
       max={String(max)}
       text="true"

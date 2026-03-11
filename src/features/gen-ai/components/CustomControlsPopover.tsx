@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo, type RefObject } fro
 import { useAppStore } from "@/core/state/store";
 import type { UISpec, UIControl, ActionDescriptor } from "../types";
 import { compileGenerator, executeGenerator } from "../runtime/codegen";
-import { executeActions } from "../adapter/action-adapter";
+import { executeActions, shrinkFrameToChildren } from "../adapter/action-adapter";
 import "./figui3-scoped.css";
 import PropertyPopover from "@/components/ui/PropertyPopover";
 import PropertyPopoverHeader from "@/components/ui/PropertyPopoverHeader";
@@ -308,29 +308,36 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
               if (rootIdx !== -1) {
                 const rootAction = generated[rootIdx];
                 const rootTempId = rootAction.tempId;
+                const rootArgs = rootAction.args ?? {};
                 const hasChildren = generated.some(
                   (a, i) => i !== rootIdx && a.parentId === rootTempId,
                 );
 
+                // Apply all root frame properties to the existing frame
                 if (
-                  typeof rootAction.args?.width === "number" &&
-                  typeof rootAction.args?.height === "number"
+                  typeof rootArgs.width === "number" &&
+                  typeof rootArgs.height === "number"
                 ) {
                   finalActions.push({
                     method: "resize",
                     nodeId: frameId,
-                    args: {
-                      width: rootAction.args.width as number,
-                      height: rootAction.args.height as number,
-                    },
+                    args: { width: rootArgs.width, height: rootArgs.height },
                   });
                 }
 
-                if (!hasChildren && rootAction.args?.cornerRadius != null) {
+                if (rootArgs.cornerRadius != null) {
                   finalActions.push({
                     method: "setCornerRadius",
                     nodeId: frameId,
-                    args: { radius: rootAction.args.cornerRadius as number },
+                    args: { radius: rootArgs.cornerRadius as number },
+                  });
+                }
+
+                if (rootArgs.fills) {
+                  finalActions.push({
+                    method: "setFill",
+                    nodeId: frameId,
+                    args: { fills: rootArgs.fills },
                   });
                 }
 
@@ -363,6 +370,7 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
               }
 
               executeActions(finalActions);
+              shrinkFrameToChildren(frameId);
             } else {
               const control = spec.controls.find((c) => c.id === controlId);
               const actionTemplate = (control as Record<string, unknown> | undefined)?.action as

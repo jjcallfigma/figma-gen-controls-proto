@@ -646,9 +646,10 @@ function handleApplyImageFill(action: ActionDescriptor, tempIdMap: Map<string, s
 
   let dataUrl: string | undefined;
 
-  // Raw PNG bytes -> data URL
-  if (Array.isArray(args.imageData)) {
-    const bytes = args.imageData as number[];
+  // Raw PNG bytes -> data URL (accept both imageData and imageBytes)
+  const rawBytes = args.imageData ?? args.imageBytes;
+  if (Array.isArray(rawBytes)) {
+    const bytes = rawBytes as number[];
     const uint8 = new Uint8Array(bytes);
     let binary = "";
     for (let i = 0; i < uint8.length; i++) {
@@ -771,4 +772,59 @@ export function executeActions(
   }
 
   return { createdIds, rootFrameId, tempIdMap };
+}
+
+/**
+ * Resize a frame to tightly hug its children's bounding box.
+ * Repositions children so the top-left child sits at (0,0) and shrinks the
+ * frame to exactly contain all children. No-op if the frame has no children.
+ */
+export function shrinkFrameToChildren(frameId: string): void {
+  const state = useAppStore.getState();
+  const frame = state.objects[frameId];
+  if (!frame || !frame.childIds.length) return;
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+  for (const childId of frame.childIds) {
+    const child = state.objects[childId];
+    if (!child) continue;
+    minX = Math.min(minX, child.x);
+    minY = Math.min(minY, child.y);
+    maxX = Math.max(maxX, child.x + child.width);
+    maxY = Math.max(maxY, child.y + child.height);
+  }
+
+  if (!isFinite(minX)) return;
+
+  const newW = Math.ceil(maxX - minX);
+  const newH = Math.ceil(maxY - minY);
+
+  if (newW >= frame.width && newH >= frame.height) return;
+
+  const dispatch = state.dispatch;
+
+  if (minX !== 0 || minY !== 0) {
+    for (const childId of frame.childIds) {
+      const child = state.objects[childId];
+      if (!child) continue;
+      dispatch({
+        type: "object.updated",
+        payload: {
+          id: childId,
+          changes: { x: child.x - minX, y: child.y - minY },
+          previousValues: { x: child.x, y: child.y },
+        },
+      });
+    }
+  }
+
+  dispatch({
+    type: "object.updated",
+    payload: {
+      id: frameId,
+      changes: { width: newW, height: newH },
+      previousValues: { width: frame.width, height: frame.height },
+    },
+  });
 }
