@@ -920,8 +920,85 @@ export default function AiAssistantSidebar({
       return true;
     }
 
+    if (cmd === "/status") {
+      const msgId = nanoid();
+      designChat.injectMessage({
+        id: msgId,
+        role: "assistant",
+        content: "Checking Claude API status...",
+        timestamp: Date.now(),
+        messageType: "status",
+      });
+
+      fetch("/api/ai-status")
+        .then((r) => r.json())
+        .then((data) => {
+          const lines: string[] = [];
+
+          if (data.status === "ok") {
+            lines.push("**Claude API: Connected**");
+            lines.push(`Key: \`${data.keyPreview}\``);
+            lines.push(`Model: ${data.model}`);
+            if (data.rateLimits) {
+              const rl = data.rateLimits;
+              if (rl.requestsRemaining != null && rl.requestsLimit != null) {
+                lines.push(`Requests: ${rl.requestsRemaining} / ${rl.requestsLimit} remaining`);
+              }
+              if (rl.tokensRemaining != null && rl.tokensLimit != null) {
+                const tokensK = Math.round(Number(rl.tokensRemaining) / 1000);
+                const limitK = Math.round(Number(rl.tokensLimit) / 1000);
+                lines.push(`Tokens: ${tokensK}k / ${limitK}k remaining`);
+              }
+              if (rl.requestsReset) {
+                const resetDate = new Date(rl.requestsReset);
+                const secsLeft = Math.max(0, Math.round((resetDate.getTime() - Date.now()) / 1000));
+                lines.push(`Resets in: ${secsLeft}s`);
+              }
+            }
+            if (data.usage) {
+              lines.push(`Ping cost: ${data.usage.input_tokens} in / ${data.usage.output_tokens} out tokens`);
+            }
+          } else {
+            lines.push("**Claude API: Error**");
+            lines.push(`Key: \`${data.keyPreview || "not set"}\``);
+            lines.push(`Error: ${data.error}`);
+            if (data.httpStatus) {
+              lines.push(`HTTP Status: ${data.httpStatus}`);
+            }
+            if (data.httpStatus === 400 && data.error?.includes("credit")) {
+              lines.push("\nYour account has insufficient credits. Top up at [console.anthropic.com](https://console.anthropic.com).");
+            }
+          }
+
+          designChat.updateMessage(msgId, { content: lines.join("\n") });
+        })
+        .catch((err) => {
+          designChat.updateMessage(msgId, {
+            content: `**Claude API: Error**\nFailed to reach status endpoint: ${err.message}`,
+          });
+        });
+
+      return true;
+    }
+
+    if (cmd === "/help") {
+      designChat.injectMessage({
+        id: nanoid(),
+        role: "assistant",
+        content: [
+          "**Available commands:**",
+          "`/status` — Check Claude API connection, rate limits, and credits",
+          "`/ui [type]` — Preview control widgets (full, dials, slider, 3d, toggle, select, segmented, number, color, text, xy, range, fill, curve)",
+          "`/help` — Show this message",
+        ].join("\n"),
+        timestamp: Date.now(),
+        messageType: "status",
+      });
+      return true;
+    }
+
     return false;
-  }, []);
+  }, [designChat]);
 
   const handleUnifiedSend = useCallback(async () => {
     const text = designChat.message.trim();

@@ -280,12 +280,17 @@ export function useGenAI() {
         promptText,
       );
 
-      // Estimate if generator-heavy to set max_tokens
-      const generatorLikely =
+      // Use generous token budget when a generator is involved -- either
+      // the prompt mentions generator keywords OR we're modifying an
+      // existing spec that already has a generator (follow-up prompts like
+      // "add wind controls" don't contain generator keywords but still
+      // require the LLM to re-emit the full generator string).
+      const hasExistingGenerator = !!(uiSpec?.generate);
+      const promptMatchesGenerator =
         /\b(grid|pattern|dots|circle|generate|create.*\d|layout|arrange|distribute|carousel|randomize|gradient|spiral|scatter|wavy|noise|organic|palette|color.*scale|saturate|desaturate|darken|lighten|hue.*shift|3d|sphere|cube|fractal|tree|qr|halftone|dither|posterize|flow.*field|chart|voronoi|rough|sketch|mosaic|superformula|blob|turing|reaction.*diffusion|attractor|metaballs|circle.*pack|dla|cellular.*automata|wave.*function)\b/i.test(
           promptText,
         );
-      const maxTokens = generatorLikely ? 16384 : 4096;
+      const maxTokens = (promptMatchesGenerator || hasExistingGenerator) ? 16384 : 4096;
 
       // Call the API with streaming
       const controller = new AbortController();

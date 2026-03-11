@@ -203,44 +203,207 @@ function buildDesignContext(
   return { designTree: "", contextDescription: "" };
 }
 
-/** Build the full canvas context for the agentic API */
-function buildCanvasContext() {
+// ─── History trimming ────────────────────────────────────────────────
+
+const DC_MAX_RECENT_TURNS = 6;
+const DC_HISTORY_CHAR_BUDGET = 40_000;
+
+/**
+ * Strips the embedded design-tree block from a user message, leaving only
+ * the human-authored text. The live designTree already supplies current state.
+ */
+function stripDesignTreeBlock(content: string): string {
+  return content
+    .replace(/\[Context:[^\]]*\]\s*/g, "")
+    .replace(/Design tree:\s*```html[\s\S]*?```\s*/g, "")
+    .trim();
+}
+
+interface TrimmedMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/**
+ * Trims design-chat history for API consumption:
+ *  1. Keeps the last N turn-pairs in full (with design-tree stripped).
+ *  2. Summarises older turns to a one-line digest.
+ *  3. Enforces a total character budget by dropping oldest turns first.
+ */
+function trimChatHistory(messages: TrimmedMessage[]): TrimmedMessage[] {
+  if (messages.length === 0) return [];
+
+  // Group into turn-pairs (user + assistant)
+  const pairs: Array<{ user?: TrimmedMessage; assistant?: TrimmedMessage }> = [];
+  let cur: { user?: TrimmedMessage; assistant?: TrimmedMessage } = {};
+
+  for (const msg of messages) {
+    if (msg.role === "user") {
+      if (cur.user) pairs.push(cur);
+      cur = { user: msg };
+    } else {
+      cur.assistant = msg;
+      pairs.push(cur);
+      cur = {};
+    }
+  }
+  if (cur.user || cur.assistant) pairs.push(cur);
+
+  const recentStart = Math.max(0, pairs.length - DC_MAX_RECENT_TURNS);
+  const result: TrimmedMessage[] = [];
+
+  for (let i = 0; i < pairs.length; i++) {
+    const pair = pairs[i];
+    const isOld = i < recentStart;
+
+    if (pair.user) {
+      const cleaned = stripDesignTreeBlock(pair.user.content);
+      if (isOld) {
+        const summary = cleaned.length > 120
+          ? cleaned.slice(0, 117).trim() + "..."
+          : cleaned;
+        result.push({ role: "user", content: summary });
+      } else {
+        result.push({ role: "user", content: cleaned });
+      }
+    }
+    if (pair.assistant) {
+      if (isOld) {
+        const summary = pair.assistant.content.length > 200
+          ? pair.assistant.content.slice(0, 197).trim() + "..."
+          : pair.assistant.content;
+        result.push({ role: "assistant", content: summary });
+      } else {
+        result.push({ role: "assistant", content: pair.assistant.content });
+      }
+    }
+  }
+
+  // Enforce total character budget by dropping oldest turns
+  let totalChars = result.reduce((sum, m) => sum + m.content.length, 0);
+  while (totalChars > DC_HISTORY_CHAR_BUDGET && result.length > 2) {
+    const removed = result.shift()!;
+    totalChars -= removed.content.length;
+    if (result.length > 0 && result[0].role === "assistant") {
+      totalChars -= result[0].content.length;
+      result.shift();
+    }
+  }
+
+  return result;
+}
+
+// ─── Canvas context ──────────────────────────────────────────────────
+
+const MAX_CONTEXT_OBJECTS = 100;
+
+const stripImageData = (fills: any[] | undefined) => {
+  if (!fills) return fills;
+  return fills.map((f: any) => {
+    if (f.type === "image" && typeof f.imageUrl === "string" && f.imageUrl.startsWith("data:")) {
+      return { ...f, imageUrl: "[base64 image]" };
+    }
+    return f;
+  });
+};
+
+function serializePlainObject(o: any) {
+  return {
+    id: o.id,
+    name: o.name,
+    type: o.type,
+    x: o.x,
+    y: o.y,
+    width: o.width,
+    height: o.height,
+    parentId: o.parentId,
+    childIds: o.childIds || [],
+    fills: stripImageData(o.fills),
+    strokes: o.strokes,
+    strokeWidth: o.strokeWidth,
+    opacity: o.opacity,
+    visible: o.visible,
+    autoLayoutSizing: o.autoLayoutSizing,
+    properties: o.properties,
+  };
+}
+
+/**
+ * Collects the full subtree (ancestors + descendants) for a set of object IDs.
+ */
+function collectSubtreeIds(
+  rootIds: string[],
+  objects: Record<string, any>,
+): Set<string> {
+  const collected = new Set<string>();
+
+  const addDescendants = (id: string) => {
+    if (collected.has(id)) return;
+    const obj = objects[id];
+    if (!obj) return;
+    collected.add(id);
+    const children: string[] = obj.childIds || [];
+    for (const child of children) addDescendants(child);
+  };
+
+  const addAncestors = (id: string) => {
+    const obj = objects[id];
+    if (!obj) return;
+    let parentId = obj.parentId;
+    while (parentId && objects[parentId]) {
+      collected.add(parentId);
+      parentId = objects[parentId].parentId;
+    }
+  };
+
+  for (const id of rootIds) {
+    addDescendants(id);
+    addAncestors(id);
+  }
+
+  return collected;
+}
+
+/**
+ * Build canvas context scoped to the session's selection subtree.
+ * Falls back to top-level-only summaries when no selection is present.
+ */
+function buildCanvasContext(selectionCtx: SelectionContext | null) {
   const state = useAppStore.getState();
   const { objects, pages, pageIds, currentPageId, selection } = state as any;
 
-  // Serialize objects to plain data (strip functions, proxies, etc.)
-  // Strip base64 image URLs from fills to avoid sending megabytes of data
-  const stripImageData = (fills: any[] | undefined) => {
-    if (!fills) return fills;
-    return fills.map((f: any) => {
-      if (f.type === "image" && typeof f.imageUrl === "string" && f.imageUrl.startsWith("data:")) {
-        return { ...f, imageUrl: "[base64 image]" };
-      }
-      return f;
-    });
-  };
+  const selectedIds: string[] =
+    selectionCtx?.objectIds?.filter((id: string) => objects[id]) ??
+    selection?.selectedIds ??
+    [];
 
+  let relevantIds: Set<string>;
+
+  if (selectedIds.length > 0) {
+    relevantIds = collectSubtreeIds(selectedIds, objects);
+  } else {
+    // No selection: include only root-level objects (no parentId)
+    relevantIds = new Set<string>();
+    for (const [id, obj] of Object.entries(objects)) {
+      const o = obj as any;
+      if (!o.parentId) relevantIds.add(id);
+    }
+  }
+
+  // Cap to prevent massive payloads
   const plainObjects: Record<string, any> = {};
-  for (const [id, obj] of Object.entries(objects)) {
-    const o = obj as any;
-    plainObjects[id] = {
-      id: o.id,
-      name: o.name,
-      type: o.type,
-      x: o.x,
-      y: o.y,
-      width: o.width,
-      height: o.height,
-      parentId: o.parentId,
-      childIds: o.childIds || [],
-      fills: stripImageData(o.fills),
-      strokes: o.strokes,
-      strokeWidth: o.strokeWidth,
-      opacity: o.opacity,
-      visible: o.visible,
-      autoLayoutSizing: o.autoLayoutSizing,
-      properties: o.properties,
-    };
+  let count = 0;
+  let truncated = false;
+
+  for (const id of relevantIds) {
+    if (count >= MAX_CONTEXT_OBJECTS) {
+      truncated = true;
+      break;
+    }
+    const obj = objects[id];
+    if (!obj) continue;
+    plainObjects[id] = serializePlainObject(obj);
+    count++;
   }
 
   const plainPages: Record<string, any> = {};
@@ -255,7 +418,6 @@ function buildCanvasContext() {
     }
   }
 
-  // Include design system context if available
   const dsStore = useDesignSystemStore.getState();
   const designSystemContext = dsStore.getDesignContext();
 
@@ -266,6 +428,7 @@ function buildCanvasContext() {
     currentPageId: currentPageId || "",
     selectedIds: selection?.selectedIds || [],
     designSystem: designSystemContext || undefined,
+    ...(truncated ? { _truncated: true, _totalObjects: relevantIds.size } : {}),
   };
 }
 
@@ -776,17 +939,18 @@ export function useDesignChat(): UseDesignChatReturn {
       let totalOperationsApplied = 0;
 
       try {
-        // Build the full canvas context for the agentic API
-        const canvasContext = buildCanvasContext();
+        // Build canvas context scoped to the session's selection subtree
+        const canvasContext = buildCanvasContext(targetSession.selectionContext);
 
-        // Build API messages (strip tool call info, keep raw content)
-        const apiMessages = newHistory
+        // Build API messages: filter non-conversational types, then trim
+        const rawApiMessages = newHistory
           .filter((m) => m.role === "user" || m.role === "assistant")
           .filter((m) => m.messageType !== "tool_activity" && m.messageType !== "status")
           .map((m) => ({
             role: m.role as "user" | "assistant",
             content: m.content,
           }));
+        const apiMessages = trimChatHistory(rawApiMessages);
 
         const controller = new AbortController();
         abortControllersRef.current.set(targetSessionId, controller);

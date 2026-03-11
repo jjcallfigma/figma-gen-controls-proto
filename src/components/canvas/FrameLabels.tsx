@@ -322,6 +322,7 @@ export default function FrameLabels({ isDragging = false }: FrameLabelsProps) {
                 {frame.genAiSpec && (
                   <IconControlsIndicator
                     className="inline-block align-middle ml-1"
+                    style={{ marginTop: -2 }}
                   />
                 )}
               </div>

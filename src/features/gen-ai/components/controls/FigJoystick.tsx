@@ -32,9 +32,20 @@ export function FigJoystick({
     const el = ref.current;
     if (!el) return;
     const handler = (e: Event) => {
-      const raw = (e.target as HTMLElement & { value: string }).value;
-      const parts = raw.split(",").map((s) => parseFloat(s.trim()));
-      if (parts.length >= 2 && parts.every((n) => !isNaN(n))) {
+      const raw = (e.target as any).value;
+      let parts: number[] | null = null;
+
+      if (typeof raw === "string") {
+        parts = raw.split(",").map((s: string) => parseFloat(s.trim()));
+      } else if (Array.isArray(raw)) {
+        parts = raw.map(Number);
+      } else if (raw && typeof raw === "object" && "x" in raw && "y" in raw) {
+        parts = [Number(raw.x), Number(raw.y)];
+      } else if (typeof raw === "number") {
+        parts = [raw, raw];
+      }
+
+      if (parts && parts.length >= 2 && parts.every((n) => !isNaN(n))) {
         const { minX: mnx, maxX: mxx, minY: mny, maxY: mxy } = rangeRef.current;
         onChangeRef.current({
           x: mnx + parts[0] * (mxx - mnx),

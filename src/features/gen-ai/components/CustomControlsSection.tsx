@@ -47,13 +47,10 @@ export function CustomControlsSection({ object }: Props) {
   const openPopover = useCallback(() => {
     if (!sectionRef.current) return;
     const rect = sectionRef.current.getBoundingClientRect();
-    const controlCount = spec?.controls.length ?? 0;
-    const estimatedHeight = 48 + controlCount * 40 + 16;
-    const maxY = window.innerHeight - estimatedHeight - 8;
-    const y = Math.max(8, Math.min(rect.top, maxY));
-    setPopoverPosition({ x: rect.left - POPOVER_WIDTH, y });
+    // Place to the left of the section; PropertyPopover auto-clamps to viewport
+    setPopoverPosition({ x: rect.left - POPOVER_WIDTH, y: rect.top });
     setIsPopoverOpen(true);
-  }, [spec]);
+  }, []);
 
   const togglePopover = useCallback(() => {
     if (isPopoverOpen) {

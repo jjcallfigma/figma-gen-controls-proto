@@ -502,6 +502,33 @@ export default function PropertyPopover({
     },
   };
 
+  // After render, clamp position so the popover stays fully within the viewport
+  useEffect(() => {
+    if (!isOpen || !popoverRef.current || !onPositionChange) return;
+
+    const el = popoverRef.current;
+    const rect = el.getBoundingClientRect();
+    const pad = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let x = position.x;
+    let y = position.y;
+
+    if (rect.bottom > vh - pad) {
+      y = Math.max(pad, vh - rect.height - pad);
+    }
+    if (rect.right > vw - pad) {
+      x = Math.max(pad, vw - rect.width - pad);
+    }
+    if (y < pad) y = pad;
+    if (x < pad) x = pad;
+
+    if (x !== position.x || y !== position.y) {
+      onPositionChange({ x, y });
+    }
+  });
+
   if (!isOpen) return null;
 
   return (
