@@ -495,11 +495,15 @@ origin point, direction vector, blur angle+distance, gradient direction). The 2D
 explore the space intuitively. Triggers: "offset", "position", "origin", "direction", shadow X/Y.
 Props: minX (number, default -100), maxX (number, default 100), minY (number, default -100),
 maxY (number, default 100), stepX (number, default 1), stepY (number, default 1),
-defaultValue ({ x: number, y: number })
+defaultValue ({ x: number, y: number }),
+coordinates ("screen" | "math", default "screen" — "screen" = 0,0 top-left; "math" = 0,0 bottom-left),
+aspectRatio (string, e.g. "16 / 9" — aspect ratio of the pad plane, default "1 / 1"),
+axisLabels (string — space-separated labels placed around the pad edges;
+  1 token = top label; 2 tokens = left + bottom; 4 tokens = left right top bottom)
 Value type: { x: number, y: number }
 Example: { "id": "shadowOffset", "type": "xy-pad", "label": "Shadow Offset",
   "props": { "minX": -50, "maxX": 50, "minY": -50, "maxY": 50, "stepX": 1, "stepY": 1,
-  "defaultValue": { "x": 0, "y": 8 } } }
+  "defaultValue": { "x": 0, "y": 8 }, "axisLabels": "Left Right Up Down" } }
 Generator access: params.shadowOffset.x, params.shadowOffset.y
 
 ### range

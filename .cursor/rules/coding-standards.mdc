@@ -39,6 +39,10 @@ alwaysApply: true
 - `genAiValues` JSON is a fallback only.
 - When a control's action modifies fills, always preserve the existing fill type — never hardcode `type: "solid"`.
 - Use `fill` (type `"fill"`) for any gradient or multi-stop color control. Reserve `color` for single solid colors only.
+- Chat history is scoped per frame ID (`chatHistoryMapRef` in `useGenAI.ts`). Each frame gets its own conversation context.
+- Auto-generate is one-shot: empty history in, no history stored out. Prevents contamination of follow-up prompts.
+- `CustomControlsSection` accepts `objects: CanvasObject[]` (multi-selection). The "+" button dispatches `"gen-ai-auto-generate"` events.
+- AI shimmer (`setAiEditingObjectsGroup`) wraps all LLM calls in `runGenAiWithChat`. The star icon animates when `aiEditingGroups` overlaps the selection.
 
 ## Naming
 

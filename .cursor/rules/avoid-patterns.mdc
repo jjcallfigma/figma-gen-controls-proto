@@ -19,6 +19,10 @@ alwaysApply: true
 - **Never discard `genAiSpec` when re-running a generator.** The stamped spec (with `props.defaultValue` set) is the source of truth. Always stamp current values before persisting.
 - **Never let the LLM's `defaultValue` overwrite a stamped `defaultValue` during merge.** When `replace: false`, if a control already exists in the previous spec with a stamped `defaultValue`, always carry it forward. The LLM doesn't know the user's current runtime value.
 - **Never assume the LLM will produce `createFrame` as root.** Add defensive fallbacks in `rewriteActionsForReapply` for bare `createRectangle` / `createEllipse` root actions.
+- **Never use a single global chat history for all gen-ai conversations.** Chat history is scoped per frame ID (`chatHistoryMapRef`). Switching frames must not leak conversation context.
+- **Never store auto-generate exchanges in chat history.** Auto-generate is one-shot; its response should not influence follow-up prompts.
+- **Never use `xy-pad` for width/height controls.** Use separate sliders. `xy-pad` is only for 2D offsets or positions.
+- **Never clear `rootFrameIdRef` on `replace: true` when `targetObjectId` is set.** Auto-generate targets an existing object; `replace: true` must not wipe the target reference.
 
 ## CSS / Styling
 

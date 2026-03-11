@@ -25,15 +25,23 @@ User prompt
 
 | File | Role |
 |------|------|
-| `hooks/useGenAI.ts` | Chat state, streaming, prompt dispatch, generator execution |
+| `hooks/useGenAI.ts` | Chat state (per-frame), streaming, prompt dispatch, generator execution |
 | `adapter/action-adapter.ts` | Maps action descriptors to canvas store dispatches |
 | `adapter/fill-converter.ts` | Converts between gen-ai fill formats and canvas fill types |
+| `components/CustomControlsSection.tsx` | "Custom" section in properties panel, "+" auto-generate button, multi-object support |
 | `components/CustomControlsPopover.tsx` | Renders UISpec controls, manages values, persists state |
 | `runtime/codegen.ts` | Compiles and executes generator functions |
 | `runtime/template.ts` | Control defaults, placeholder resolution, `collectControlDefaults` |
-| `prompt/system-prompt.ts` | LLM instructions — action format, control types, recipes |
+| `prompt/system-prompt.ts` | LLM instructions — action format, control types, recipes, `AUTO_GENERATE_ADDENDUM` |
+| `prompt/prompt-composer.ts` | Assembles system prompt + context + history, supports `autoGenerate` option |
 | `utils/intent.ts` | `isGenAiIntent()` regex for routing prompts |
-| `store.ts` | Per-frame UISpec and control values (Zustand) |
+
+## Chat History
+
+Chat history is scoped per frame ID via `chatHistoryMapRef` (a `Map<string, GenAIChatMessage[]>`).
+Each frame with controls gets its own conversation thread. Switching between objects isolates context.
+Auto-generate (`opts.autoGenerate`) is a one-shot operation — it skips history entirely (no read, no write).
+`/clear` slash command calls `clearHistory()` to wipe all frame histories.
 
 ## Value Persistence (specWithCurrentValues)
 
@@ -51,6 +59,25 @@ When modifying an existing gen-ai object:
 3. `rewriteActionsForReapply` retargets all actions to the existing frame
 4. Generator re-runs with current values (stamped defaults + persisted values)
 
+## Auto-Generate (Reverse-Engineer Controls)
+
+Triggered by the "+" button in CustomControlsSection:
+1. Dispatches `"gen-ai-auto-generate"` event with selected object IDs
+2. `AiAssistantSidebar` listens, calls `sendPrompt("auto-generate", { autoGenerate: true, targetObjectId })`
+3. `composePrompt` uses `AUTO_GENERATE_ADDENDUM` as the system prompt (in `system-prompt.ts`)
+4. LLM analyzes the selected nodes and returns controls (no generator, no actions typically)
+5. Spec is persisted on `targetObjectId` (the existing object)
+6. Controls popover opens automatically on completion
+
+Key: `targetObjectId` prevents `replace: true` from clearing `rootFrameIdRef` (which would lose the target).
+
+## AI Shimmer Animation
+
+All gen-ai LLM calls activate the shimmer via `setAiEditingObjectsGroup` in `runGenAiWithChat`.
+The shimmer covers initial generation, follow-up modifications, and auto-generate.
+The star icon on the canvas also enters loading state when `aiEditingGroups` overlaps the selection
+(checked in `OnCanvasAiPrompt.tsx` via `selectionInAiEditingGroup`).
+
 ## Control Types
 
 - `slider` / `range`: Numeric sliders
@@ -59,3 +86,12 @@ When modifying an existing gen-ai object:
 - `select` / `radio`: Enumerated options
 - `checkbox` / `toggle`: Boolean
 - `text`: String input
+- `xy-pad`: 2D offset/position control. Never use for width/height (use sliders instead).
+- `angle`: Rotation/angle dial
+
+## Slash Commands
+
+- `/status` — Claude API connection, rate limits, credits
+- `/clear` — Clear all gen-ai per-frame chat histories
+- `/ui [type]` — Preview control widgets
+- `/help` — List available commands

@@ -22,6 +22,7 @@ declare module "react" {
       fields?: string;
       coordinates?: string;
       "aspect-ratio"?: string;
+      "axis-labels"?: string;
       direction?: string;
       label?: string;
       name?: string;
@@ -42,7 +43,7 @@ declare module "react" {
       "fig-input-color": FigAttrs;
       "fig-input-fill": FigAttrs;
       "fig-input-angle": FigAttrs;
-      "fig-input-joystick": FigAttrs;
+      "fig-joystick": FigAttrs;
       "fig-segmented-control": FigAttrsC;
       "fig-segment": FigAttrsC;
       "fig-easing-curve": FigAttrs;

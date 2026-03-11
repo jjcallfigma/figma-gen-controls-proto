@@ -41,5 +41,5 @@ src/
 
 - **Event-sourced store**: All mutations go through `dispatch(createEvent(...))`. A reducer (`applyEventToState`) applies them to an Immer draft. Undo/redo stacks are maintained automatically.
 - **Transient store**: High-frequency state (drag positions, resize) lives outside Immer to avoid re-render overhead.
-- **Gen-AI pipeline**: User prompt -> LLM -> JSON response -> `action-adapter.ts` executes canvas actions + `CustomControlsPopover.tsx` renders the UI spec. Generator functions allow controls to re-run actions live without another LLM call.
+- **Gen-AI pipeline**: User prompt -> LLM -> JSON response -> `action-adapter.ts` executes canvas actions + `CustomControlsPopover.tsx` renders the UI spec. Generator functions allow controls to re-run actions live without another LLM call. Auto-generate ("+" button) reverse-engineers controls for existing objects. AI shimmer animation activates on all LLM-calling paths.
 - **Fill system**: `Fill` is a discriminated union (`solid | linear-gradient | radial-gradient | image`). All fill mutations go through `action-adapter.ts handleSetFill`. Opacity updates must preserve the existing fill type.

@@ -12,6 +12,14 @@ interface FigJoystickProps {
   maxY?: number;
   stepX?: number;
   stepY?: number;
+  coordinates?: "screen" | "math";
+  aspectRatio?: string;
+  axisLabels?: string;
+}
+
+function parsePct(token: string): number {
+  const numeric = parseFloat(token.replace(/%/g, "").trim());
+  return Number.isFinite(numeric) ? numeric / 100 : 0.5;
 }
 
 export function FigJoystick({
@@ -21,6 +29,9 @@ export function FigJoystick({
   maxX = 50,
   minY = -50,
   maxY = 50,
+  coordinates,
+  aspectRatio,
+  axisLabels,
 }: FigJoystickProps) {
   const ref = useRef<HTMLElement>(null);
   const onChangeRef = useRef(onChange);
@@ -32,26 +43,18 @@ export function FigJoystick({
     const el = ref.current;
     if (!el) return;
     const handler = (e: Event) => {
-      const raw = (e.target as any).value;
-      let parts: number[] | null = null;
+      const raw = (e.target as HTMLElement & { value: string }).value;
+      const parts = String(raw).split(/[\s,]+/).filter(Boolean);
+      if (parts.length < 2) return;
 
-      if (typeof raw === "string") {
-        parts = raw.split(",").map((s: string) => parseFloat(s.trim()));
-      } else if (Array.isArray(raw)) {
-        parts = raw.map(Number);
-      } else if (raw && typeof raw === "object" && "x" in raw && "y" in raw) {
-        parts = [Number(raw.x), Number(raw.y)];
-      } else if (typeof raw === "number") {
-        parts = [raw, raw];
-      }
+      const normX = parsePct(parts[0]);
+      const normY = parsePct(parts[1]);
 
-      if (parts && parts.length >= 2 && parts.every((n) => !isNaN(n))) {
-        const { minX: mnx, maxX: mxx, minY: mny, maxY: mxy } = rangeRef.current;
-        onChangeRef.current({
-          x: mnx + parts[0] * (mxx - mnx),
-          y: mny + parts[1] * (mxy - mny),
-        });
-      }
+      const { minX: mnx, maxX: mxx, minY: mny, maxY: mxy } = rangeRef.current;
+      onChangeRef.current({
+        x: mnx + normX * (mxx - mnx),
+        y: mny + normY * (mxy - mny),
+      });
     };
     el.addEventListener("input", handler);
     return () => el.removeEventListener("input", handler);
@@ -59,20 +62,23 @@ export function FigJoystick({
 
   const rangeX = maxX - minX || 1;
   const rangeY = maxY - minY || 1;
-  const normX = ((value.x - minX) / rangeX).toFixed(3);
-  const normY = ((value.y - minY) / rangeY).toFixed(3);
+  const pctX = Math.round(((value.x - minX) / rangeX) * 100);
+  const pctY = Math.round(((value.y - minY) / rangeY) * 100);
+  const pctStr = `${pctX}% ${pctY}%`;
 
   useEffect(() => {
     const el = ref.current;
-    if (el) el.setAttribute("value", `${normX},${normY}`);
-  }, [normX, normY]);
+    if (el) el.setAttribute("value", pctStr);
+  }, [pctStr]);
 
   return (
-    <fig-input-joystick
+    <fig-joystick
       ref={ref}
-      value={`${normX},${normY}`}
-      precision="3"
-      text="true"
+      value={pctStr}
+      fields="true"
+      coordinates={coordinates}
+      aspect-ratio={aspectRatio}
+      axis-labels={axisLabels}
     />
   );
 }
