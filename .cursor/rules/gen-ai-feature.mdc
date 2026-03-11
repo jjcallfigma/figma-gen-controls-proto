@@ -89,9 +89,17 @@ The star icon on the canvas also enters loading state when `aiEditingGroups` ove
 - `xy-pad`: 2D offset/position control. Never use for width/height (use sliders instead).
 - `angle`: Rotation/angle dial
 
+## Control Size (Layout)
+
+- `size` (optional top-level field on each control, NOT inside `props`):
+  - `"large"` (default): horizontal row, label 1/3 + control 2/3
+  - `"small"`: horizontal row, label 1/2 + control 1/2 (compact)
+  - `"xl"`: vertical layout, label above + control full width
+- All controls default to `"large"`. Set `"xl"` explicitly for controls that need full width.
+
 ## Slash Commands
 
 - `/status` — Claude API connection, rate limits, credits
 - `/clear` — Clear all gen-ai per-frame chat histories
-- `/ui [type]` — Preview control widgets
+- `/ui [type] [size]` — Preview control widgets (optional size: large, small, xl)
 - `/help` — List available commands

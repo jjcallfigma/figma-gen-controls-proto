@@ -312,6 +312,7 @@ export interface UIControl {
     | 'curve'
     | '3d-preview';
   label?: string;
+  size?: 'large' | 'small' | 'xl';
   props?: Record<string, unknown>;
   /** Single Figma API update when this control changes (simple case). */
   action?: ActionDescriptor;

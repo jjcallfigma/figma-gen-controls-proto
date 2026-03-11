@@ -440,6 +440,20 @@ point. These are defaults — the user can override any of them.
   slider for blur/spread/offset with coordinated actions. color for shadow color.
   toggle for visibility. Use the property-patch form.
 
+### Control size (layout)
+
+Every control accepts an optional top-level \`size\` field (NOT inside \`props\`):
+  \`size\`: "large" | "small" | "xl" (default varies by type)
+  - **"large"** (default for most controls): horizontal row — label 1/3, control 2/3.
+    Use when the user says "large" or doesn't specify a size.
+  - **"small"**: horizontal row — label 1/2, control 1/2. Compact layout.
+    Use when the user says "small" or "compact".
+  - **"xl"**: vertical layout — label above, control full width.
+    Use when the user says "xl", "extra large", or "full width".
+    Good for spatially large controls (xy-pad, curve, 3d-preview, gradient-bar, range)
+    but must be set explicitly — all controls default to "large".
+Example: { "id": "blur", "type": "slider", "label": "Blur", "size": "small", "props": { ... } }
+
 ### slider
 Drag slider with inline editable value.
 Props: min (number), max (number), step (number, default 0.01), defaultValue (number)

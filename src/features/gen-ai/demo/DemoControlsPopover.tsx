@@ -27,33 +27,38 @@ if (typeof window !== "undefined") {
 
 const POPOVER_WIDTH = 240;
 
-const FULL_WIDTH_TYPES = new Set(["3d-preview", "curve", "gradient-bar", "fill", "xy-pad", "range"]);
+function resolveSize(control: UIControl): "large" | "small" | "xl" {
+  return control.size ?? "large";
+}
+
+const labelStyle = { fontWeight: 450, color: "var(--color-text-secondary)", letterSpacing: "0.055px" } as const;
 
 function FieldRow({
   label,
   children,
-  fullWidth = false,
+  size = "large",
 }: {
   label: string;
   children: React.ReactNode;
-  fullWidth?: boolean;
+  size?: "large" | "small" | "xl";
 }) {
-  if (fullWidth) {
+  if (size === "xl") {
     return (
       <div className="flex flex-col gap-1 px-4 py-1">
-        <span className="text-[11px] h-6 flex items-center truncate" style={{ fontWeight: 450, color: "var(--color-text-secondary)", letterSpacing: "0.055px" }}>
+        <span className="text-[11px] h-6 flex items-center truncate" style={labelStyle}>
           {label}
         </span>
         {children}
       </div>
     );
   }
+  const controlWidth = size === "small" ? 100 : 132;
   return (
-    <div className="flex items-center gap-2 px-4 py-1">
-      <span className="flex-1 text-[11px] h-6 flex items-center truncate min-w-0" style={{ fontWeight: 450, color: "var(--color-text-secondary)", letterSpacing: "0.055px" }}>
+    <div className="flex items-start gap-2 px-4 py-1">
+      <span className="flex-1 text-[11px] h-6 flex items-center truncate min-w-0 shrink-0" style={labelStyle}>
         {label}
       </span>
-      <div className="flex items-center shrink-0 overflow-hidden" style={{ width: 132 }}>
+      <div className="flex items-center shrink-0 overflow-hidden" style={{ width: controlWidth }}>
         {children}
       </div>
     </div>
@@ -153,7 +158,7 @@ export default function DemoControlsPopover() {
       <div className="figui3-scope overflow-y-auto overflow-x-hidden py-2" style={{ maxHeight: 500 }}>
         <div className="flex flex-col">
           {spec.controls.map((control) => (
-            <FieldRow key={control.id} label={control.label || control.id} fullWidth={FULL_WIDTH_TYPES.has(control.type)}>
+            <FieldRow key={control.id} label={control.label || control.id} size={resolveSize(control)}>
               {renderControl(control, values[control.id] ?? getDefaultValue(control), (val) =>
                 handleChange(control.id, val),
               )}

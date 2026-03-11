@@ -976,15 +976,24 @@ export default function AiAssistantSidebar({
     const cmd = text.toLowerCase().trim();
 
     if (cmd === "/ui" || cmd.startsWith("/ui ")) {
-      const sub = cmd.slice(3).trim();
-      const entry = MOCK_CONTROLS[sub];
+      const parts = cmd.slice(3).trim().split(/\s+/);
+      const controlType = parts[0] || "";
+      const sizeArg = parts[1] as "large" | "small" | "xl" | undefined;
+      const entry = MOCK_CONTROLS[controlType];
       if (!entry) {
         const keys = getMockControlKeys().join(", ");
-        console.warn(`[slash] Unknown: /ui ${sub}. Available: ${keys}`);
+        console.warn(`[slash] Unknown: /ui ${controlType}. Available: ${keys}`);
       } else {
+        let spec = entry.spec;
+        if (sizeArg && ["large", "small", "xl"].includes(sizeArg)) {
+          spec = {
+            ...spec,
+            controls: spec.controls.map((c) => ({ ...c, size: sizeArg })),
+          };
+        }
         window.dispatchEvent(
           new CustomEvent("demo-controls-open", {
-            detail: { spec: entry.spec, label: entry.label },
+            detail: { spec, label: entry.label },
           }),
         );
       }
@@ -1072,7 +1081,7 @@ export default function AiAssistantSidebar({
           "**Available commands:**",
           "`/status` — Check Claude API connection, rate limits, and credits",
           "`/clear` — Clear all gen-ai chat history",
-          "`/ui [type]` — Preview control widgets (full, dials, slider, 3d, toggle, select, segmented, number, color, text, xy, range, fill, curve)",
+          "`/ui [type] [size]` — Preview control widgets (types: full, dials, slider, 3d, toggle, select, segmented, number, color, text, xy, range, fill, curve, sizes; sizes: large, small, xl)",
           "`/help` — Show this message",
         ].join("\n"),
         timestamp: Date.now(),

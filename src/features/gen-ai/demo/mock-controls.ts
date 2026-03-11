@@ -3,12 +3,12 @@ import type { UISpec, UIControl } from "../types";
 const fullControls: UIControl[] = [
   { id: "rotation-3d", type: "3d-preview", label: "3D Rotation", props: { defaultValue: { rx: 0, ry: 34, rz: 0 } } },
   { id: "slider-opacity", type: "slider", label: "Opacity", props: { min: 0, max: 100, step: 1, defaultValue: 73 } },
-  { id: "slider-blur", type: "slider", label: "Blur", props: { min: 0, max: 50, step: 0.5, defaultValue: 4 } },
+  { id: "slider-blur", type: "slider", label: "Blur", size: "small", props: { min: 0, max: 50, step: 0.5, defaultValue: 4 } },
   { id: "range-size", type: "range", label: "Size Range", props: { min: 4, max: 48, step: 1, defaultValue: { low: 8, high: 24 } } },
   { id: "select-blend", type: "select", label: "Blend Mode", props: { options: ["Off", "Multiply", "Screen", "Overlay"], defaultValue: "Off" } },
   { id: "toggle-visible", type: "toggle", label: "Visible", props: { defaultValue: true } },
   { id: "seg-align", type: "segmented", label: "Alignment", props: { options: [{ value: "left", label: "Left" }, { value: "center", label: "Center" }, { value: "right", label: "Right" }], defaultValue: "center" } },
-  { id: "num-radius", type: "number", label: "Border Radius", props: { min: 0, max: 100, step: 1, defaultValue: 8 } },
+  { id: "num-radius", type: "number", label: "Border Radius", size: "small", props: { min: 0, max: 100, step: 1, defaultValue: 8 } },
   { id: "color-fill", type: "color", label: "Fill Color", props: { defaultValue: "#3B82F6" } },
   { id: "text-name", type: "text", label: "Layer Name", props: { placeholder: "Enter a name…", defaultValue: "" } },
   { id: "xy-shadow", type: "xy-pad", label: "Shadow Offset", props: { minX: -50, maxX: 50, minY: -50, maxY: 50, stepX: 1, stepY: 1, defaultValue: { x: -20, y: 15 } } },
@@ -150,6 +150,20 @@ export const MOCK_CONTROLS: Record<string, { label: string; spec: UISpec }> = {
       controls: [
         { id: "crv-falloff", type: "curve", label: "Size Falloff", props: { defaultValue: [0.42, 0, 0.58, 1] } },
         { id: "crv-ease", type: "curve", label: "Distribution", props: { defaultValue: [0.25, 0.1, 0.25, 1.0] } },
+      ],
+    },
+  },
+  sizes: {
+    label: "Size Variants",
+    spec: {
+      mode: "live",
+      controls: [
+        { id: "sz-large", type: "slider", label: "Large (default)", props: { min: 0, max: 100, step: 1, defaultValue: 50 } },
+        { id: "sz-small", type: "slider", label: "Small", size: "small", props: { min: 0, max: 100, step: 1, defaultValue: 50 } },
+        { id: "sz-xl", type: "slider", label: "XL", size: "xl", props: { min: 0, max: 100, step: 1, defaultValue: 50 } },
+        { id: "sz-color-sm", type: "color", label: "Color (small)", size: "small", props: { defaultValue: "#3B82F6" } },
+        { id: "sz-xy-sm", type: "xy-pad", label: "XY (small)", size: "small", props: { minX: -50, maxX: 50, minY: -50, maxY: 50, stepX: 1, stepY: 1, defaultValue: { x: 0, y: 0 } } },
+        { id: "sz-xy-xl", type: "xy-pad", label: "XY (xl default)", props: { minX: -50, maxX: 50, minY: -50, maxY: 50, stepX: 1, stepY: 1, defaultValue: { x: 0, y: 0 } } },
       ],
     },
   },
