@@ -293,7 +293,20 @@ export default function OnCanvasAiPrompt({
     () => findOverlappingSessionForNodes(selectedIds),
     [selectedIds, aiSessionStatuses],
   );
-  const selectionStarStatus = overlapInfo?.status ?? "idle";
+
+  const selectionInAiEditingGroup = useMemo(() => {
+    if (selectedIds.length === 0) return false;
+    const selSet = new Set(selectedIds);
+    for (const idRecord of Object.values(aiEditingGroups)) {
+      const ids = Object.keys(idRecord);
+      if (ids.length > 0 && ids.some((id) => selSet.has(id))) return true;
+    }
+    return false;
+  }, [selectedIds, aiEditingGroups]);
+
+  const selectionStarStatus = selectionInAiEditingGroup
+    ? "loading"
+    : overlapInfo?.status ?? "idle";
 
   const selectedIdsKey = selectedIds.join(",");
   const selectionStarKeysAndBounds = useMemo(() => {

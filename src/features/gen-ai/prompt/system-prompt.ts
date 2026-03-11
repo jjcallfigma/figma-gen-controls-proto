@@ -305,6 +305,10 @@ When the user asks to add or modify controls on an existing plugin:
 - Include ALL controls in the "controls" array — both existing and new/changed ones.
   The runtime merges by control id, so including unchanged controls is safe and ensures
   the generator and controls stay in sync.
+- **ONLY add controls the user explicitly asked for.** Do NOT invent extra controls beyond
+  what was requested. If the user says "add a wind control", add exactly one wind control —
+  do not also add padding, width, height, shadow, or any other controls. Respect the user's
+  intent precisely.
 - Set "actions": [] if no new canvas changes are needed (the previous ones already ran).
 - Keep control IDs stable across turns so the user doesn't lose their current slider positions.
 - **When a control is being superseded or is no longer relevant**, use "removeControls" to
@@ -692,10 +696,21 @@ selection.
 10. Use the most appropriate control type for each property:
     - color → color control
     - opacity, radius, numeric ranges → slider
+    - width, height, size → slider (one per dimension). Do NOT use xy-pad for width/height.
+    - xy-pad is ONLY for 2D offsets or positions, never for size.
     - boolean (visible, clip) → toggle
     - small set of options → segmented
     - font weight, blend mode → select
-11. For shadow/effect controls, use the property-patch form in actions (property + effectType).
+11. For shadow/blur/effect controls: if the node does NOT already have that effect, you MUST
+    include an initial action in the top-level "actions" array that creates the effect on the
+    node BEFORE the control can modify it. Use method "setEffect" with the full effect
+    descriptor: { "type": "DROP_SHADOW", "color": { "r": 0, "g": 0, "b": 0, "a": 0.25 },
+    "offset": { "x": 0, "y": 4 }, "radius": 4, "spread": 0, "visible": true }.
+    Set the initial values to match the defaultValue of 0 (invisible shadow) so nothing
+    changes visually until the user moves the slider.
+    Example initial action:
+    { "method": "setEffect", "nodeId": "NODE_ID", "args": { "effects": [{ "type": "DROP_SHADOW", "color": { "r": 0, "g": 0, "b": 0, "a": 0.25 }, "offset": { "x": 0, "y": 0 }, "radius": 0, "spread": 0, "visible": true }] } }
+    If the node already has the effect, skip the initial action.
 
 ### Example auto-generated output for 3 rectangles with the same blue fill and different corner radii
 

@@ -461,9 +461,9 @@ export default function PropertiesPanel({
                 )}
 
                 {/* Gen-AI Custom Controls */}
-                {selectedObjects.length === 1 && (
+                {selectedObjects.length >= 1 && (
                   <>
-                    <CustomControlsSection object={selectedObjects[0]} />
+                    <CustomControlsSection objects={selectedObjects} />
                     <div
                       className="my-0"
                       style={{ borderTop: "1px solid var(--color-border)" }}

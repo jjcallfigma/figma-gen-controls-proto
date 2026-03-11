@@ -216,8 +216,18 @@ export function useGenAI() {
   // Per-frame gen-ai state
   const currentSpecRef = useRef<UISpec | null>(null);
   const rootFrameIdRef = useRef<string | undefined>(undefined);
-  const chatHistoryRef = useRef<GenAIChatMessage[]>([]);
+  const chatHistoryMapRef = useRef<Map<string, GenAIChatMessage[]>>(new Map());
   const abortRef = useRef<AbortController | null>(null);
+
+  const getFrameHistory = (frameId: string | undefined): GenAIChatMessage[] => {
+    if (!frameId) return [];
+    let history = chatHistoryMapRef.current.get(frameId);
+    if (!history) {
+      history = [];
+      chatHistoryMapRef.current.set(frameId, history);
+    }
+    return history;
+  };
 
   /**
    * Phase 1 test: hardcoded circle grid
@@ -244,6 +254,8 @@ export function useGenAI() {
   const sendPrompt = useCallback(async (
     promptText: string,
     opts?: {
+      autoGenerate?: boolean;
+      targetObjectId?: string;
       onStreamingUpdate?: (partialText: string) => void;
       onComplete?: (summary: string | undefined, frameId: string | undefined) => void;
     },
@@ -252,6 +264,11 @@ export function useGenAI() {
     setError(null);
 
     try {
+      // For auto-generate on an existing object, anchor the spec to that object
+      if (opts?.targetObjectId) {
+        rootFrameIdRef.current = opts.targetObjectId;
+      }
+
       // Build selection context from current clone selection
       const state = useAppStore.getState();
       const selectedIds = state.selection.selectedIds || [];
@@ -260,17 +277,22 @@ export function useGenAI() {
       // Include existing spec for follow-up prompts
       const uiSpec = currentSpecRef.current;
 
-      // Build chat history for the prompt composer
-      const history = chatHistoryRef.current
-        .filter((m) => m.role !== "error")
-        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+      // Build chat history scoped to the current frame.
+      // Auto-generate is a one-shot operation -- skip history entirely.
+      const frameHistory = getFrameHistory(rootFrameIdRef.current);
+      const history = opts?.autoGenerate
+        ? []
+        : frameHistory
+            .filter((m) => m.role !== "error")
+            .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
-      // Add user message to history
-      chatHistoryRef.current.push({
-        role: "user",
-        content: promptText,
-        timestamp: Date.now(),
-      });
+      if (!opts?.autoGenerate) {
+        frameHistory.push({
+          role: "user",
+          content: promptText,
+          timestamp: Date.now(),
+        });
+      }
 
       // Compose the prompt
       const { system, messages: apiMessages } = composePrompt(
@@ -278,6 +300,7 @@ export function useGenAI() {
         uiSpec,
         history,
         promptText,
+        { autoGenerate: opts?.autoGenerate },
       );
 
       // Use generous token budget when a generator is involved -- either
@@ -290,7 +313,7 @@ export function useGenAI() {
         /\b(grid|pattern|dots|circle|generate|create.*\d|layout|arrange|distribute|carousel|randomize|gradient|spiral|scatter|wavy|noise|organic|palette|color.*scale|saturate|desaturate|darken|lighten|hue.*shift|3d|sphere|cube|fractal|tree|qr|halftone|dither|posterize|flow.*field|chart|voronoi|rough|sketch|mosaic|superformula|blob|turing|reaction.*diffusion|attractor|metaballs|circle.*pack|dla|cellular.*automata|wave.*function)\b/i.test(
           promptText,
         );
-      const maxTokens = (promptMatchesGenerator || hasExistingGenerator) ? 16384 : 4096;
+      const maxTokens = (promptMatchesGenerator || hasExistingGenerator || opts?.autoGenerate) ? 16384 : 4096;
 
       // Call the API with streaming
       const controller = new AbortController();
@@ -358,13 +381,16 @@ export function useGenAI() {
 
       const { actions, ui, message: assistantMessage, generate } = parsed.data;
 
-      // Add assistant message to history — always store the raw JSON so the LLM
-      // sees its own structured output on follow-up turns and stays in JSON mode.
-      chatHistoryRef.current.push({
-        role: "assistant",
-        content: fullText,
-        timestamp: Date.now(),
-      });
+      // Add assistant message to history scoped to this frame — always store the
+      // raw JSON so the LLM sees its own structured output on follow-up turns.
+      // Skip for auto-generate (one-shot, shouldn't influence follow-up prompts).
+      if (!opts?.autoGenerate) {
+        getFrameHistory(rootFrameIdRef.current).push({
+          role: "assistant",
+          content: fullText,
+          timestamp: Date.now(),
+        });
+      }
 
       // Merge UI spec — __IMG_N__ placeholders stay in the generate string.
       // They are resolved at compile-time from the canvas frame's children.
@@ -408,7 +434,7 @@ export function useGenAI() {
 
       currentSpecRef.current = mergedUi;
 
-      if (normalizedUi.replace) {
+      if (normalizedUi.replace && !opts?.targetObjectId) {
         rootFrameIdRef.current = undefined;
       }
 
@@ -560,7 +586,7 @@ export function useGenAI() {
       setError(message);
       setIsLoading(false);
 
-      chatHistoryRef.current.push({
+      getFrameHistory(rootFrameIdRef.current).push({
         role: "error",
         content: message,
         timestamp: Date.now(),
@@ -631,6 +657,10 @@ export function useGenAI() {
     }
   }, []);
 
+  const clearHistory = useCallback(() => {
+    chatHistoryMapRef.current.clear();
+  }, []);
+
   return {
     isLoading,
     error,
@@ -641,5 +671,6 @@ export function useGenAI() {
     rerunGenerator,
     stop,
     restoreFromFrame,
+    clearHistory,
   };
 }

@@ -844,7 +844,11 @@ export default function AiAssistantSidebar({
 
   // Shared helper: run a Gen AI prompt and surface it in the design chat
   const runGenAiWithChat = useCallback(
-    async (promptText: string, displayText?: string) => {
+    async (
+      promptText: string,
+      displayText?: string,
+      opts?: { autoGenerate?: boolean },
+    ) => {
       const userMsgId = nanoid();
       const activityMsgId = nanoid();
 
@@ -864,16 +868,36 @@ export default function AiAssistantSidebar({
         makeActivityDone: false,
       });
 
-      await genAI.sendPrompt(promptText, {
-        onComplete: (summary, frameId) => {
-          const label = summary || "Custom controls";
-          designChat.updateMessage(activityMsgId, {
-            content: label,
-            makeActivityDone: true,
-            genAiFrameId: frameId,
-          });
-        },
-      });
+      const shimmerGroupKey = `gen-ai-${nanoid(6)}`;
+      const selectedIds = useAppStore.getState().selection.selectedIds || [];
+      if (selectedIds.length > 0) {
+        useAppStore.getState().setAiEditingObjectsGroup(shimmerGroupKey, selectedIds, true);
+      }
+
+      try {
+        await genAI.sendPrompt(promptText, {
+          autoGenerate: opts?.autoGenerate,
+          targetObjectId: opts?.autoGenerate ? selectedIds[0] : undefined,
+          onComplete: (summary, frameId) => {
+            const label = summary || "Custom controls";
+            designChat.updateMessage(activityMsgId, {
+              content: label,
+              makeActivityDone: true,
+              genAiFrameId: frameId,
+            });
+            if (frameId) {
+              useAppStore.getState().setAiEditingObjectsGroup(shimmerGroupKey, [frameId], true);
+              setTimeout(() => {
+                useAppStore.getState().setAiEditingObjectsGroup(shimmerGroupKey, [], false);
+              }, 600);
+            } else {
+              useAppStore.getState().setAiEditingObjectsGroup(shimmerGroupKey, [], false);
+            }
+          },
+        });
+      } catch {
+        useAppStore.getState().setAiEditingObjectsGroup(shimmerGroupKey, [], false);
+      }
     },
     [designChat, genAI],
   );
@@ -898,6 +922,53 @@ export default function AiAssistantSidebar({
     window.addEventListener("gen-ai-modify-send", handler);
     return () => window.removeEventListener("gen-ai-modify-send", handler);
   }, [genAI, runGenAiWithChat]);
+
+  // Listen for auto-generate requests from the "+" button in CustomControlsSection
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const objectIds: string[] = (e as CustomEvent).detail?.objectIds ?? [];
+      if (objectIds.length === 0) return;
+
+      window.dispatchEvent(
+        new CustomEvent("gen-ai-auto-generate-start", { detail: { objectIds } }),
+      );
+
+      try {
+        // Ensure the first object is selected so sendPrompt picks it up
+        const state = useAppStore.getState();
+        const currentSelection = state.selection.selectedIds || [];
+        if (!objectIds.every((id) => currentSelection.includes(id))) {
+          state.dispatch({
+            type: "selection.set",
+            payload: { ids: objectIds },
+          });
+        }
+
+        await runGenAiWithChat("auto-generate", "Auto-generate controls", {
+          autoGenerate: true,
+        });
+
+        // Open controls popover on the result frame
+        const resultFrameId = objectIds[0];
+        const obj = useAppStore.getState().objects[resultFrameId];
+        if (obj?.genAiSpec) {
+          setTimeout(() => {
+            window.dispatchEvent(
+              new CustomEvent("gen-ai-open-controls", {
+                detail: { frameId: resultFrameId },
+              }),
+            );
+          }, 300);
+        }
+      } finally {
+        window.dispatchEvent(
+          new CustomEvent("gen-ai-auto-generate-end", { detail: { objectIds } }),
+        );
+      }
+    };
+    window.addEventListener("gen-ai-auto-generate", handler);
+    return () => window.removeEventListener("gen-ai-auto-generate", handler);
+  }, [runGenAiWithChat]);
 
   // isGenAiIntent is imported from @/features/gen-ai/utils/intent
 
@@ -981,6 +1052,18 @@ export default function AiAssistantSidebar({
       return true;
     }
 
+    if (cmd === "/clear") {
+      genAI.clearHistory();
+      designChat.injectMessage({
+        id: nanoid(),
+        role: "assistant",
+        content: "Gen-AI chat history cleared.",
+        timestamp: Date.now(),
+        messageType: "status",
+      });
+      return true;
+    }
+
     if (cmd === "/help") {
       designChat.injectMessage({
         id: nanoid(),
@@ -988,6 +1071,7 @@ export default function AiAssistantSidebar({
         content: [
           "**Available commands:**",
           "`/status` — Check Claude API connection, rate limits, and credits",
+          "`/clear` — Clear all gen-ai chat history",
           "`/ui [type]` — Preview control widgets (full, dials, slider, 3d, toggle, select, segmented, number, color, text, xy, range, fill, curve)",
           "`/help` — Show this message",
         ].join("\n"),
@@ -998,7 +1082,7 @@ export default function AiAssistantSidebar({
     }
 
     return false;
-  }, [designChat]);
+  }, [designChat, genAI]);
 
   const handleUnifiedSend = useCallback(async () => {
     const text = designChat.message.trim();
