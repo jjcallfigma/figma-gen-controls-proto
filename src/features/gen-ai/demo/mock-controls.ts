@@ -11,7 +11,7 @@ const fullControls: UIControl[] = [
   { id: "num-radius", type: "number", label: "Border Radius", size: "small", props: { min: 0, max: 100, step: 1, defaultValue: 8 } },
   { id: "color-fill", type: "color", label: "Fill Color", props: { defaultValue: "#3B82F6" } },
   { id: "text-name", type: "text", label: "Layer Name", props: { placeholder: "Enter a name…", defaultValue: "" } },
-  { id: "xy-shadow", type: "xy-pad", label: "Shadow Offset", props: { minX: -50, maxX: 50, minY: -50, maxY: 50, stepX: 1, stepY: 1, defaultValue: { x: -20, y: 15 } } },
+  { id: "xy-shadow", type: "xy-pad", label: "Shadow Offset", props: { minX: -50, maxX: 50, minY: -50, maxY: 50, stepX: 1, stepY: 1, defaultValue: { x: 0, y: 0 } } },
   { id: "fill-sunset", type: "fill", label: "Fill", props: { stops: [{ id: "s0", position: 0, color: "#FF6B35" }, { id: "s1", position: 0.5, color: "#F7C948" }, { id: "s2", position: 1, color: "#9B5DE5" }] } },
   { id: "crv-falloff", type: "curve", label: "Falloff Curve", props: { defaultValue: [0.42, 0, 0.58, 1] } },
 ];
@@ -118,7 +118,7 @@ export const MOCK_CONTROLS: Record<string, { label: string; spec: UISpec }> = {
     spec: {
       mode: "live",
       controls: [
-        { id: "xy-shadow", type: "xy-pad", label: "Shadow Offset", props: { minX: -50, maxX: 50, minY: -50, maxY: 50, stepX: 1, stepY: 1, defaultValue: { x: -20, y: 15 } } },
+        { id: "xy-shadow", type: "xy-pad", label: "Shadow Offset", props: { minX: -50, maxX: 50, minY: -50, maxY: 50, stepX: 1, stepY: 1, defaultValue: { x: 0, y: 0 } } },
         { id: "xy-origin", type: "xy-pad", label: "Transform Origin", props: { minX: 0, maxX: 100, minY: 0, maxY: 100, stepX: 1, stepY: 1, defaultValue: { x: 50, y: 50 } } },
       ],
     },

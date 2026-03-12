@@ -38,7 +38,9 @@ function getControlDefaultValue(control: UIControl): unknown {
         : 0;
     case 'xy-pad': {
       const dv = props.defaultValue as { x?: number; y?: number } | undefined;
-      return { x: dv?.x ?? 0, y: dv?.y ?? 0 };
+      const midX = ((props.minX as number ?? -100) + (props.maxX as number ?? 100)) / 2;
+      const midY = ((props.minY as number ?? -100) + (props.maxY as number ?? 100)) / 2;
+      return { x: dv?.x ?? midX, y: dv?.y ?? midY };
     }
     case 'range': {
       const dv = props.defaultValue as { low?: number; high?: number } | undefined;

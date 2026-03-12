@@ -443,15 +443,14 @@ point. These are defaults — the user can override any of them.
 ### Control size (layout)
 
 Every control accepts an optional top-level \`size\` field (NOT inside \`props\`):
-  \`size\`: "large" | "small" | "xl" (default varies by type)
-  - **"large"** (default for most controls): horizontal row — label 1/3, control 2/3.
-    Use when the user says "large" or doesn't specify a size.
+  \`size\`: "large" | "small" | "xl"
+  - **"large"** (default for ALL controls): horizontal row — label 1/3, control 2/3.
+    This is the default. Do NOT set \`size\` at all unless the user explicitly requests a different size.
   - **"small"**: horizontal row — label 1/2, control 1/2. Compact layout.
-    Use when the user says "small" or "compact".
+    ONLY use when the user says "small" or "compact".
   - **"xl"**: vertical layout — label above, control full width.
-    Use when the user says "xl", "extra large", or "full width".
-    Good for spatially large controls (xy-pad, curve, 3d-preview, gradient-bar, range)
-    but must be set explicitly — all controls default to "large".
+    ONLY use when the user explicitly says "xl", "extra large", or "full width".
+  **IMPORTANT: Never set \`size\` on your own.** If the user does not mention a size, omit the field entirely (defaults to "large"). This applies to ALL control types including xy-pad, curve, 3d-preview, etc.
 Example: { "id": "blur", "type": "slider", "label": "Blur", "size": "small", "props": { ... } }
 
 ### slider
@@ -503,21 +502,21 @@ Props: none beyond label
 Value type: void
 
 ### xy-pad
-2D position pad with draggable crosshair cursor. Displays a grid with axis labels.
+2D position pad with draggable crosshair cursor and built-in X/Y numeric inputs.
 USE INSTEAD OF two separate sliders whenever two numeric values form a spatial pair (X/Y offset,
 origin point, direction vector, blur angle+distance, gradient direction). The 2D pad lets users
 explore the space intuitively. Triggers: "offset", "position", "origin", "direction", shadow X/Y.
 Props: minX (number, default -100), maxX (number, default 100), minY (number, default -100),
 maxY (number, default 100), stepX (number, default 1), stepY (number, default 1),
-defaultValue ({ x: number, y: number }),
+defaultValue ({ x: number, y: number } — ALWAYS set to the midpoint of the range, e.g. { "x": 0, "y": 0 } for -50..50, so the handle starts centered),
 coordinates ("screen" | "math", default "screen" — "screen" = 0,0 top-left; "math" = 0,0 bottom-left),
-aspectRatio (string, e.g. "16 / 9" — aspect ratio of the pad plane, default "1 / 1"),
-axisLabels (string — space-separated labels placed around the pad edges;
-  1 token = top label; 2 tokens = left + bottom; 4 tokens = left right top bottom)
+aspectRatio (string, e.g. "16 / 9" — aspect ratio of the pad plane, default "1 / 1")
+Do NOT use "axisLabels" — this prop does not exist. The pad has built-in X/Y inputs only.
+Do NOT set "size" unless the user explicitly asks. xy-pad defaults to "large" like all controls.
 Value type: { x: number, y: number }
 Example: { "id": "shadowOffset", "type": "xy-pad", "label": "Shadow Offset",
   "props": { "minX": -50, "maxX": 50, "minY": -50, "maxY": 50, "stepX": 1, "stepY": 1,
-  "defaultValue": { "x": 0, "y": 8 }, "axisLabels": "Left Right Up Down" } }
+  "defaultValue": { "x": 0, "y": 0 } } }
 Generator access: params.shadowOffset.x, params.shadowOffset.y
 
 ### range

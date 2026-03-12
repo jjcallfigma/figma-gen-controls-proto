@@ -269,7 +269,6 @@ function renderControl(
           stepY={props.stepY as number ?? 1}
           coordinates={props.coordinates as "screen" | "math" | undefined}
           aspectRatio={props.aspectRatio as string | undefined}
-          axisLabels={props.axisLabels as string | undefined}
         />
       );
     case "range":

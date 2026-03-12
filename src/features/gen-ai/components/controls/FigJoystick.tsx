@@ -14,7 +14,6 @@ interface FigJoystickProps {
   stepY?: number;
   coordinates?: "screen" | "math";
   aspectRatio?: string;
-  axisLabels?: string;
 }
 
 function parsePct(token: string): number {
@@ -31,7 +30,6 @@ export function FigJoystick({
   maxY = 50,
   coordinates,
   aspectRatio,
-  axisLabels,
 }: FigJoystickProps) {
   const ref = useRef<HTMLElement>(null);
   const onChangeRef = useRef(onChange);
@@ -78,7 +76,6 @@ export function FigJoystick({
       fields="true"
       coordinates={coordinates}
       aspect-ratio={aspectRatio}
-      axis-labels={axisLabels}
     />
   );
 }

@@ -22,7 +22,6 @@ declare module "react" {
       fields?: string;
       coordinates?: string;
       "aspect-ratio"?: string;
-      "axis-labels"?: string;
       direction?: string;
       label?: string;
       name?: string;
