@@ -66,6 +66,11 @@ function getControlDefaultValue(control: UIControl): unknown {
       const dv = props.defaultValue as { rx?: number; ry?: number; rz?: number } | undefined;
       return { rx: dv?.rx ?? 0, ry: dv?.ry ?? 0, rz: dv?.rz ?? 0 };
     }
+    case 'grid-selector': {
+      if (typeof props.defaultValue === 'string') return props.defaultValue;
+      const opts = Array.isArray(props.options) ? props.options as { value: string }[] : [];
+      return opts[0]?.value ?? '';
+    }
     case 'button':
       return null;
     default:

@@ -296,3 +296,22 @@ textarea:not(.figui3-scope *):not(.fig-fill-picker-dialog *) {
   background-color: var(--figma-color-bg-secondary);
   display: inline-grid;
 }
+
+/* Grid selector cells */
+.fig-grid-cell {
+  transition: --gs-stroke 120ms, --gs-fill 120ms;
+}
+.fig-grid-cell:not([data-selected]):hover {
+  --gs-stroke: #BFBFBF !important;
+  --gs-fill: #C5C5C5 !important;
+}
+.fig-grid-cell svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.fig-grid-cell[data-selected] svg path {
+  stroke: #0D99FF;
+  stroke-width: 0.5;
+  paint-order: stroke fill;
+}

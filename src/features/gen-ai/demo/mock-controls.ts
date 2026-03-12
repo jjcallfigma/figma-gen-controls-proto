@@ -1,4 +1,5 @@
 import type { UISpec, UIControl } from "../types";
+import { GRID_LAYOUT_SVGS } from "../components/controls/grid-selector-svgs";
 
 const fullControls: UIControl[] = [
   { id: "rotation-3d", type: "3d-preview", label: "3D Rotation", props: { defaultValue: { rx: 0, ry: 34, rz: 0 } } },
@@ -150,6 +151,22 @@ export const MOCK_CONTROLS: Record<string, { label: string; spec: UISpec }> = {
       controls: [
         { id: "crv-falloff", type: "curve", label: "Size Falloff", props: { defaultValue: [0.42, 0, 0.58, 1] } },
         { id: "crv-ease", type: "curve", label: "Distribution", props: { defaultValue: [0.25, 0.1, 0.25, 1.0] } },
+      ],
+    },
+  },
+  grid: {
+    label: "Grid Selector",
+    spec: {
+      mode: "live",
+      controls: [
+        { id: "gridStyle", type: "grid-selector", label: "Grid Style", props: { options: [
+          { value: "2-up", label: "2-up", svg: GRID_LAYOUT_SVGS["2-up"] },
+          { value: "top-heavy", label: "Top Heavy", svg: GRID_LAYOUT_SVGS["top-heavy"] },
+          { value: "3-up", label: "3-up", svg: GRID_LAYOUT_SVGS["3-up"] },
+          { value: "spread", label: "Spread", svg: GRID_LAYOUT_SVGS["spread"] },
+          { value: "editorial", label: "Editorial", svg: GRID_LAYOUT_SVGS["editorial"] },
+          { value: "asymmetric", label: "Asymmetric", svg: GRID_LAYOUT_SVGS["asymmetric"] },
+        ], defaultValue: "2-up" } },
       ],
     },
   },

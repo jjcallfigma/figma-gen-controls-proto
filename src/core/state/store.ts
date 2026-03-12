@@ -2106,3 +2106,25 @@ export const useCanUndoRedo = () => {
 
   return { canUndo, canRedo };
 };
+
+// ─── Dev-mode: expose store on window.__debug ────────────────────────────────
+// Access in the browser console:
+//   __debug.store()                → dump current canvas state
+//   __debug.storeRaw               → the raw Zustand store instance
+//   __debug.storeState().objects   → current canvas objects map
+if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+  const w = window as unknown as { __debug: Record<string, unknown> };
+  w.__debug = w.__debug ?? {};
+  w.__debug.storeRaw = store;
+  w.__debug.storeState = () => store.getState();
+  w.__debug.store = () => {
+    const s = store.getState();
+    console.group("[debug] Canvas Store State");
+    console.log("objects (%d):", Object.keys(s.objects).length, s.objects);
+    console.log("selection:", s.selection);
+    console.log("pages:", s.pages, "| current:", s.currentPageId);
+    console.log("canUndo:", s.canUndo, "| canRedo:", s.canRedo);
+    console.log("viewport:", s.viewport);
+    console.groupEnd();
+  };
+}

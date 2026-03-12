@@ -8,6 +8,8 @@ import { composePrompt, parseLLMResponse, type ApiChatMessage } from "../prompt/
 import { compileGenerator, executeGenerator } from "../runtime/codegen";
 import { collectControlDefaults } from "../runtime/template";
 import type { ActionDescriptor, UISpec, SelectionContext, UIControl } from "../types";
+import { dbg } from "@/lib/debug";
+import { useGenAiDebugStore, newDebugId, jsonPreview } from "../debug/genAiDebugStore";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -263,6 +265,10 @@ export function useGenAI() {
     setIsLoading(true);
     setError(null);
 
+    const _debugId = newDebugId();
+    const _debugStart = Date.now();
+    const _pushDebug = useGenAiDebugStore.getState().push;
+
     try {
       // For auto-generate on an existing object, anchor the spec to that object
       if (opts?.targetObjectId) {
@@ -314,6 +320,22 @@ export function useGenAI() {
           promptText,
         );
       const maxTokens = (promptMatchesGenerator || hasExistingGenerator || opts?.autoGenerate) ? 16384 : 4096;
+
+      // ── Debug: record the outgoing LLM request ──────────────────────────
+      dbg.llm.group(`sendPrompt — "${promptText.slice(0, 60)}"`);
+      dbg.llm.log("messages:", apiMessages.length, "| maxTokens:", maxTokens, "| autoGen:", !!opts?.autoGenerate);
+      _pushDebug({
+        type: "llm-request",
+        id: _debugId,
+        timestamp: Date.now(),
+        promptText,
+        frameId: rootFrameIdRef.current,
+        autoGenerate: !!opts?.autoGenerate,
+        maxTokens,
+        messagesCount: apiMessages.length,
+        systemPromptLength: system.length,
+      });
+      // ────────────────────────────────────────────────────────────────────
 
       // Call the API with streaming
       const controller = new AbortController();
@@ -371,10 +393,29 @@ export function useGenAI() {
         }
       }
 
-      console.log("[gen-ai] Raw LLM response:", fullText);
+      dbg.llm.log("Raw response (%d chars):", fullText.length, fullText.slice(0, 300));
+      dbg.llm.groupEnd();
 
       // Parse the response
       const parsed = parseLLMResponse(fullText);
+
+      // ── Debug: record the LLM response ────────────────────────────────
+      _pushDebug({
+        type: "llm-response",
+        requestId: _debugId,
+        id: newDebugId(),
+        timestamp: Date.now(),
+        durationMs: Date.now() - _debugStart,
+        rawText: fullText,
+        parsedOk: parsed.ok,
+        parseError: parsed.ok ? undefined : parsed.error,
+        actionsCount: parsed.ok ? (parsed.data.actions as unknown[]).length : 0,
+        controlsCount: parsed.ok ? ((parsed.data.ui as { controls?: unknown[] })?.controls?.length ?? 0) : 0,
+        hasGenerator: parsed.ok ? !!(parsed.data.generate ?? (parsed.data.ui as { generate?: string })?.generate) : false,
+        replace: parsed.ok ? (parsed.data.ui as { replace?: boolean })?.replace : undefined,
+      });
+      // ─────────────────────────────────────────────────────────────────
+
       if (!parsed.ok) {
         throw new Error(parsed.error);
       }
@@ -452,6 +493,24 @@ export function useGenAI() {
         }
 
         result = executeActions(finalActions);
+        // ── Debug: record direct action execution ──────────────────────
+        dbg.actions.log("Executed %d actions → rootFrameId:", finalActions.length, result.rootFrameId);
+        _pushDebug({
+          type: "actions",
+          id: newDebugId(),
+          timestamp: Date.now(),
+          actions: finalActions.map((a) => ({
+            method: a.method,
+            nodeId: a.nodeId,
+            tempId: a.tempId,
+            parentId: a.parentId,
+            argsPreview: jsonPreview(a.args ?? {}),
+          })),
+          rootFrameId: result.rootFrameId,
+          frameId: rootFrameIdRef.current,
+          source: "direct",
+        });
+        // ────────────────────────────────────────────────────────────────
       } else if (mergedUi.generate) {
         // collectControlDefaults reads props.defaultValue, which is stamped
         // with the user's current values by specWithCurrentValues. For existing
@@ -487,6 +546,24 @@ export function useGenAI() {
         }
 
         result = executeActions(generated);
+        // ── Debug: record generator action execution ────────────────────
+        dbg.actions.log("Generator executed %d actions → rootFrameId:", generated.length, result.rootFrameId);
+        _pushDebug({
+          type: "actions",
+          id: newDebugId(),
+          timestamp: Date.now(),
+          actions: generated.map((a) => ({
+            method: a.method,
+            nodeId: a.nodeId,
+            tempId: a.tempId,
+            parentId: a.parentId,
+            argsPreview: jsonPreview(a.args ?? {}),
+          })),
+          rootFrameId: result.rootFrameId,
+          frameId: rootFrameIdRef.current,
+          source: "generator",
+        });
+        // ────────────────────────────────────────────────────────────────
       } else {
         result = { createdIds: [], rootFrameId: undefined, tempIdMap: new Map() };
       }
@@ -585,6 +662,18 @@ export function useGenAI() {
       console.error("[gen-ai] Error:", message);
       setError(message);
       setIsLoading(false);
+      dbg.genAi.error("Pipeline error:", message);
+
+      // ── Debug: record the error ─────────────────────────────────────
+      _pushDebug({
+        type: "error",
+        id: newDebugId(),
+        timestamp: Date.now(),
+        message,
+        context: "sendPrompt",
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+      // ────────────────────────────────────────────────────────────────
 
       getFrameHistory(rootFrameIdRef.current).push({
         role: "error",

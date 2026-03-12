@@ -1081,7 +1081,7 @@ export default function AiAssistantSidebar({
           "**Available commands:**",
           "`/status` — Check Claude API connection, rate limits, and credits",
           "`/clear` — Clear all gen-ai chat history",
-          "`/ui [type] [size]` — Preview control widgets (types: full, dials, slider, 3d, toggle, select, segmented, number, color, text, xy, range, fill, curve, sizes; sizes: large, small, xl)",
+          "`/ui [type] [size]` — Preview control widgets (types: full, dials, slider, 3d, toggle, select, segmented, number, color, text, xy, range, fill, curve, grid, sizes; sizes: large, small, xl)",
           "`/help` — Show this message",
         ].join("\n"),
         timestamp: Date.now(),

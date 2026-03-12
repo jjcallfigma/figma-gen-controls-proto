@@ -2,9 +2,8 @@
  * Creates an image grid deterministically without an LLM call.
  *
  * Uses executeActions to build the frame hierarchy, then stamps a genAiSpec
- * with controls and a generator. The generator uses __IMG_N__ placeholders
- * which are resolved at compile-time from the actual canvas children's fills,
- * keeping the stored spec small for follow-up LLM calls.
+ * with controls and a generator. Image URLs are embedded directly in the
+ * generator string so they remain stable across layout changes.
  */
 
 import { LAYOUTS, type GridLayout } from "./layouts";
@@ -12,11 +11,13 @@ import type { ImageGridImageData } from "@/features/gen-ai/utils/intent";
 import { executeActions, type ExecuteResult } from "@/features/gen-ai/adapter/action-adapter";
 import type { ActionDescriptor, UISpec } from "@/features/gen-ai/types";
 import { useAppStore } from "@/core/state/store";
+import { GRID_LAYOUT_SVGS } from "@/features/gen-ai/components/controls/grid-selector-svgs";
 
 function pickLayout(imageCount: number): GridLayout {
-  const exact = LAYOUTS.filter((l) => l.areas.length === imageCount);
+  const selectorLayouts = LAYOUTS.filter((l) => GRID_SELECTOR_LAYOUT_IDS.has(l.id));
+  const exact = selectorLayouts.filter((l) => l.areas.length === imageCount);
   if (exact.length > 0) return exact[0];
-  const closest = LAYOUTS.filter((l) => l.areas.length >= imageCount);
+  const closest = selectorLayouts.filter((l) => l.areas.length >= imageCount);
   if (closest.length > 0)
     return closest.reduce((a, b) =>
       Math.abs(a.areas.length - imageCount) <=
@@ -24,7 +25,7 @@ function pickLayout(imageCount: number): GridLayout {
         ? a
         : b,
     );
-  return LAYOUTS[0];
+  return selectorLayouts[selectorLayouts.length - 1] ?? LAYOUTS[0];
 }
 
 function buildActions(
@@ -114,14 +115,14 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 }
 
 /**
- * Builds the generator string with __IMG_N__ placeholders.
- * This is stored in genAiSpec and stays small.
+ * Builds the generator string with real image URLs embedded directly.
+ * This avoids placeholder resolution issues when layout changes reduce
+ * the number of visible images in the tree.
  */
-function buildGeneratorString(imageCount: number): string {
-  const imgEntries = Array.from(
-    { length: imageCount },
-    (_, i) => `{id:"img${i}",url:"__IMG_${i}__"}`,
-  ).join(",");
+function buildGeneratorString(images: ImageGridImageData[]): string {
+  const imgEntries = images
+    .map((img, i) => `{id:"img${i}",url:${JSON.stringify(img.url)}}`)
+    .join(",");
 
   return [
     `const LAYOUTS = ${JSON.stringify(LAYOUTS)};`,
@@ -154,20 +155,33 @@ function buildGeneratorString(imageCount: number): string {
   ].join("\n");
 }
 
-function buildSpec(images: ImageGridImageData[], layout: GridLayout): UISpec {
-  const layoutOptions = LAYOUTS.filter(
-    (l) => l.areas.length >= 2 && l.areas.length <= Math.max(images.length + 2, 7),
-  ).map((l) => ({ value: l.id, label: l.name }));
+const GRID_SELECTOR_MAPPING: { layoutId: string; svgKey: string; label: string }[] = [
+  { layoutId: "2-up", svgKey: "2-up", label: "2-up" },
+  { layoutId: "top-heavy", svgKey: "top-heavy", label: "Top Heavy" },
+  { layoutId: "3-up", svgKey: "3-up", label: "3-up" },
+  { layoutId: "spread", svgKey: "spread", label: "Spread" },
+  { layoutId: "editorial-a", svgKey: "editorial", label: "Editorial" },
+  { layoutId: "asymmetric", svgKey: "asymmetric", label: "Asymmetric" },
+];
 
+const GRID_SELECTOR_LAYOUT_IDS = new Set(GRID_SELECTOR_MAPPING.map((m) => m.layoutId));
+
+function buildGridSelectorOptions(): { value: string; label: string; svg: string }[] {
+  return GRID_SELECTOR_MAPPING
+    .filter((m) => GRID_LAYOUT_SVGS[m.svgKey])
+    .map((m) => ({ value: m.layoutId, label: m.label, svg: GRID_LAYOUT_SVGS[m.svgKey] }));
+}
+
+function buildSpec(images: ImageGridImageData[], layout: GridLayout): UISpec {
   return {
     replace: true,
     controls: [
       {
         id: "layout",
-        type: "select",
+        type: "grid-selector",
         label: "Layout",
         props: {
-          options: layoutOptions,
+          options: buildGridSelectorOptions(),
           defaultValue: layout.id,
         },
       },
@@ -190,7 +204,7 @@ function buildSpec(images: ImageGridImageData[], layout: GridLayout): UISpec {
         props: { defaultValue: "#FFFFFF" },
       },
     ],
-    generate: buildGeneratorString(images.length),
+    generate: buildGeneratorString(images),
   };
 }
 

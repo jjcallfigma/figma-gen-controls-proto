@@ -19,6 +19,7 @@ import {
   GradientBar,
   CurveEditor,
   CubePreview,
+  GridSelector,
 } from "../components/controls";
 
 if (typeof window !== "undefined") {
@@ -100,6 +101,11 @@ function getDefaultValue(control: UIControl): unknown {
       return props.defaultValue ?? [0.42, 0, 0.58, 1];
     case "3d-preview":
       return props.defaultValue ?? { rx: 0, ry: 0, rz: 0 };
+    case "grid-selector": {
+      if (typeof props.defaultValue === "string") return props.defaultValue;
+      const opts = Array.isArray(props.options) ? props.options as { value: string }[] : [];
+      return opts[0]?.value ?? "";
+    }
     default:
       return props.defaultValue;
   }
@@ -161,7 +167,7 @@ export default function DemoControlsPopover() {
             <FieldRow key={control.id} label={control.label || control.id} size={resolveSize(control)}>
               {renderControl(control, values[control.id] ?? getDefaultValue(control), (val) =>
                 handleChange(control.id, val),
-              )}
+              resolveSize(control))}
             </FieldRow>
           ))}
         </div>
@@ -174,6 +180,7 @@ function renderControl(
   control: UIControl,
   value: unknown,
   onChange: (val: unknown) => void,
+  size: "large" | "small" | "xl" = "large",
 ) {
   const props = control.props ?? {};
   const label = control.label || control.id;
@@ -310,6 +317,15 @@ function renderControl(
         />
       );
     }
+    case "grid-selector":
+      return (
+        <GridSelector
+          value={value as string}
+          onChange={onChange as (v: string) => void}
+          options={props.options as { value: string; label: string; svg: string }[]}
+          columns={size === "small" ? 2 : 3}
+        />
+      );
     default:
       return (
         <div className="text-[11px]" style={{ color: "var(--color-text-secondary)" }}>

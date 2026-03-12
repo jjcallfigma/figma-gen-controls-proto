@@ -310,7 +310,8 @@ export interface UIControl {
     | 'gradient-bar'
     | 'fill'
     | 'curve'
-    | '3d-preview';
+    | '3d-preview'
+    | 'grid-selector';
   label?: string;
   size?: 'large' | 'small' | 'xl';
   props?: Record<string, unknown>;

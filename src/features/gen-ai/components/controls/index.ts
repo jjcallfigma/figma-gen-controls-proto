@@ -11,3 +11,4 @@ export { FigRange as RangeSlider } from "./FigRange";
 export { FigGradient as GradientBar } from "./FigGradient";
 export { FigCurve as CurveEditor } from "./FigCurve";
 export { Fig3DRotate as CubePreview } from "./Fig3DRotate";
+export { FigGridSelector as GridSelector } from "./FigGridSelector";

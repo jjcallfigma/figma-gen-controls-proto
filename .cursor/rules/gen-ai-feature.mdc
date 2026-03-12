@@ -87,6 +87,7 @@ The star icon on the canvas also enters loading state when `aiEditingGroups` ove
 - `checkbox` / `toggle`: Boolean
 - `text`: String input
 - `xy-pad`: 2D offset/position control. Never use for width/height (use sliders instead).
+- `grid-selector`: Visual 2×3 grid of selectable thumbnail options (max 6). Use instead of dropdown for style presets, layout modes, pattern types.
 - `angle`: Rotation/angle dial
 
 ## Control Size (Layout)

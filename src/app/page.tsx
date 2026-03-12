@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
+import dynamic from "next/dynamic";
 import GlobalKeyboardShortcuts from "@/components/app/GlobalKeyboardShortcuts";
 import CanvasWithPropertiesWrapper, {
   LayersPanelProvider,
@@ -14,15 +15,33 @@ import AiAssistantSidebar from "@/components/AiAssistantSidebar";
 import DemoControlsPopover from "@/features/gen-ai/demo/DemoControlsPopover";
 import MakeEditorOverlay from "@/components/MakeEditorOverlay";
 import { NavigationProvider, useNavigation } from "@/contexts/NavigationContext";
-import { Agentation } from "agentation";
 
 import { useClientSidePersistence } from "@/hooks/useClientSidePersistence";
 
+// ── Dev-only debug panel ──────────────────────────────────────────────────────
+// Dynamically imported so it is excluded from production bundles.
+const GenAiDebugPanel =
+  process.env.NODE_ENV === "development"
+    ? dynamic(() => import("@/features/gen-ai/debug/GenAiDebugPanel"), { ssr: false })
+    : null;
+
 function HomePageContent() {
   const { activeTab, isNavigationCollapsed } = useNavigation();
-  
+
   // Initialize client-side persistence (loads saved state after hydration)
   useClientSidePersistence();
+
+  // Install window.__debug helpers once on mount (dev only)
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    Promise.all([
+      import("@/lib/debug"),
+      import("@/core/state/store"),
+      import("@/features/gen-ai/debug/genAiDebugStore"),
+    ]).then(([{ installDebugHelpers }, { store }, { useGenAiDebugStore }]) => {
+      installDebugHelpers(store, useGenAiDebugStore);
+    });
+  }, []);
 
   const renderSidebar = () => {
     switch (activeTab) {
@@ -67,8 +86,8 @@ function HomePageContent() {
 
       {/* Debug Portal Issues */}
 
-      {/* Agentation — dev-only annotation overlay */}
-      {process.env.NODE_ENV === "development" && <Agentation />}
+      {/* Gen-AI debug panel — dev only, excluded from production bundle */}
+      {GenAiDebugPanel && <GenAiDebugPanel />}
     </div>
   );
 }

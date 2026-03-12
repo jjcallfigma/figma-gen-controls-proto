@@ -23,6 +23,7 @@ import {
   GradientBar,
   CurveEditor,
   CubePreview,
+  GridSelector,
 } from "./controls";
 
 if (typeof window !== "undefined") {
@@ -113,6 +114,11 @@ function getDefaultValue(control: UIControl): unknown {
       return props.defaultValue ?? [0.42, 0, 0.58, 1];
     case "3d-preview":
       return props.defaultValue ?? { rx: 0, ry: 0, rz: 0 };
+    case "grid-selector": {
+      if (typeof props.defaultValue === "string") return props.defaultValue;
+      const opts = Array.isArray(props.options) ? props.options as { value: string }[] : [];
+      return opts[0]?.value ?? "";
+    }
     default:
       return props.defaultValue;
   }
@@ -242,6 +248,12 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
   );
 
   const rerunTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rerunActiveRef = useRef(false);
+
+  const guardedOnClose = useCallback(() => {
+    if (rerunActiveRef.current) return;
+    onClose();
+  }, [onClose]);
 
   // Only reload values when the control structure (ids + types) actually changes
   // or when the popover reopens. This prevents unnecessary resets when the spec
@@ -289,6 +301,7 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
           clearTimeout(rerunTimeoutRef.current);
         }
 
+        rerunActiveRef.current = true;
         rerunTimeoutRef.current = setTimeout(() => {
           try {
             if (spec.generate) {
@@ -402,6 +415,8 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
             persistValues(next);
           } catch (err) {
             console.error("[gen-ai] Control re-run error:", err);
+          } finally {
+            setTimeout(() => { rerunActiveRef.current = false; }, 100);
           }
         }, 50);
 
@@ -429,7 +444,7 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
   return (
     <PropertyPopover
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={guardedOnClose}
       position={position}
       onPositionChange={onPositionChange}
       width={260}
@@ -437,7 +452,7 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
     >
       <PropertyPopoverHeader
         title="Custom"
-        onClose={onClose}
+        onClose={guardedOnClose}
         onAction={handleModifyControls}
         actionIcon={<Icon24RewriteSmall />}
         actionTitle="Modify controls"
@@ -452,7 +467,7 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
             <FieldRow key={control.id} label={label} size={resolveSize(control)}>
               {renderControl(control, values[control.id] ?? getDefaultValue(control), (val) =>
                 handleControlChange(control.id, val),
-              )}
+              resolveSize(control))}
             </FieldRow>
             );
           })}
@@ -467,6 +482,7 @@ function renderControl(
   control: UIControl,
   value: unknown,
   onChange: (val: unknown) => void,
+  size: "large" | "small" | "xl" = "large",
 ) {
   const props = control.props ?? {};
   const label = control.label || control.id;
@@ -615,6 +631,16 @@ function renderControl(
         />
       );
     }
+
+    case "grid-selector":
+      return (
+        <GridSelector
+          value={value as string}
+          onChange={onChange as (v: string) => void}
+          options={props.options as { value: string; label: string; svg: string }[]}
+          columns={size === "small" ? 2 : 3}
+        />
+      );
 
     default:
       return (

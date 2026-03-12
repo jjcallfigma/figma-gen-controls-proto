@@ -24,6 +24,7 @@ alwaysApply: true
 - **Never use `xy-pad` for width/height controls.** Use separate sliders. `xy-pad` is only for 2D offsets or positions.
 - **Never use `axisLabels` on xy-pad controls.** The prop was removed. The pad only shows built-in X/Y numeric inputs.
 - **Never set `size` on a control unless the user explicitly requests it.** All controls default to `"large"`. The LLM must not auto-assign `"xl"` to xy-pad or any other type.
+- **Never use `select` (dropdown) for image grid layout selection.** Always use `grid-selector` with the IMAGE_GRID_LAYOUTS preset SVGs.
 - **Never clear `rootFrameIdRef` on `replace: true` when `targetObjectId` is set.** Auto-generate targets an existing object; `replace: true` must not wipe the target reference.
 
 ## CSS / Styling
