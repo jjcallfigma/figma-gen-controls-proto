@@ -337,21 +337,36 @@ export function useGenAI() {
       });
       // ────────────────────────────────────────────────────────────────────
 
-      // Call the API with streaming
+      // Call the API with streaming (retry once on 429 rate limit)
       const controller = new AbortController();
       abortRef.current = controller;
 
-      const response = await fetch("/api/gen-ai-chat", {
+      const requestBody = JSON.stringify({
+        systemPrompt: system,
+        messages: apiMessages,
+        maxTokens,
+        temperature: 0.5,
+      });
+
+      let response = await fetch("/api/gen-ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemPrompt: system,
-          messages: apiMessages,
-          maxTokens,
-          temperature: 0.5,
-        }),
+        body: requestBody,
         signal: controller.signal,
       });
+
+      if (response.status === 429) {
+        const retryAfter = parseInt(response.headers.get("retry-after") || "15", 10);
+        const waitMs = Math.min(retryAfter, 30) * 1000;
+        console.warn(`[gen-ai] Rate limited (429). Retrying in ${waitMs / 1000}s...`);
+        await new Promise((r) => setTimeout(r, waitMs));
+        response = await fetch("/api/gen-ai-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
+          signal: controller.signal,
+        });
+      }
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ error: "API request failed" }));
@@ -568,9 +583,17 @@ export function useGenAI() {
         result = { createdIds: [], rootFrameId: undefined, tempIdMap: new Map() };
       }
 
-      // Track the root object (frame or first created object)
+      // Track the root object (frame or first created object).
+      // When replace:true cleared rootFrameIdRef and the actions only
+      // mutate existing nodes (no creates), recover the target from
+      // the first nodeId in the actions or from the current selection.
       if (!existingFrameId) {
         rootFrameIdRef.current = result.rootFrameId ?? result.createdIds[0];
+        if (!rootFrameIdRef.current) {
+          const firstNodeId = (actions as ActionDescriptor[]).find(a => a.nodeId)?.nodeId;
+          const fallbackSelectedId = selectedIds.length === 1 ? selectedIds[0] : undefined;
+          rootFrameIdRef.current = firstNodeId ?? fallbackSelectedId;
+        }
       }
 
       // Shrink root frame to hug its children (eliminates dead space)

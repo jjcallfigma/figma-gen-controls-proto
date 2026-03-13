@@ -842,7 +842,9 @@ export default function AiAssistantSidebar({
     return () => window.removeEventListener("ai-open-chat-session", handler);
   }, [designChat]);
 
-  // Shared helper: run a Gen AI prompt and surface it in the design chat
+  // Shared helper: run a Gen AI prompt and surface it in the design chat.
+  // Phases through the same "Thinking..." / tool-call-step UI as the regular
+  // assistant pipeline, then converts to a make_activity card on completion.
   const runGenAiWithChat = useCallback(
     async (
       promptText: string,
@@ -859,14 +861,37 @@ export default function AiAssistantSidebar({
         timestamp: Date.now(),
       });
 
+      // Start as a plain assistant message so AssistantMessage renders
+      // StreamingPlaceholder ("Thinking...") while isStreaming is true.
       designChat.injectMessage({
         id: activityMsgId,
         role: "assistant",
-        content: "Custom controls",
+        content: "",
         timestamp: Date.now(),
-        messageType: "make_activity",
-        makeActivityDone: false,
       });
+
+      // Phase through fake tool-call steps that match the regular pipeline UX.
+      const phaseTimers: ReturnType<typeof setTimeout>[] = [];
+
+      phaseTimers.push(
+        setTimeout(() => {
+          designChat.updateMessage(activityMsgId, {
+            toolCalls: [{ id: "tc-inspect", name: "inspect_canvas", status: "running" as const }],
+          });
+        }, 1500),
+      );
+
+      phaseTimers.push(
+        setTimeout(() => {
+          designChat.updateMessage(activityMsgId, {
+            toolCalls: [{ id: "tc-apply", name: "apply_operations", status: "running" as const }],
+          });
+        }, 4000),
+      );
+
+      const clearPhaseTimers = () => {
+        for (const t of phaseTimers) clearTimeout(t);
+      };
 
       const shimmerGroupKey = `gen-ai-${nanoid(6)}`;
       const selectedIds = useAppStore.getState().selection.selectedIds || [];
@@ -874,17 +899,26 @@ export default function AiAssistantSidebar({
         useAppStore.getState().setAiEditingObjectsGroup(shimmerGroupKey, selectedIds, true);
       }
 
+      const finalizeMessage = (
+        label: string,
+        frameId?: string | undefined,
+      ) => {
+        clearPhaseTimers();
+        designChat.updateMessage(activityMsgId, {
+          content: label,
+          messageType: "make_activity",
+          makeActivityDone: true,
+          genAiFrameId: frameId,
+          toolCalls: [],
+        });
+      };
+
       try {
-        await genAI.sendPrompt(promptText, {
+        const result = await genAI.sendPrompt(promptText, {
           autoGenerate: opts?.autoGenerate,
           targetObjectId: opts?.autoGenerate ? selectedIds[0] : undefined,
           onComplete: (summary, frameId) => {
-            const label = summary || "Custom controls";
-            designChat.updateMessage(activityMsgId, {
-              content: label,
-              makeActivityDone: true,
-              genAiFrameId: frameId,
-            });
+            finalizeMessage(summary || "Custom controls", frameId);
             if (frameId) {
               useAppStore.getState().setAiEditingObjectsGroup(shimmerGroupKey, [frameId], true);
               setTimeout(() => {
@@ -895,8 +929,14 @@ export default function AiAssistantSidebar({
             }
           },
         });
+
+        if (result === null) {
+          useAppStore.getState().setAiEditingObjectsGroup(shimmerGroupKey, [], false);
+          finalizeMessage(genAI.error || "Generation failed");
+        }
       } catch {
         useAppStore.getState().setAiEditingObjectsGroup(shimmerGroupKey, [], false);
+        finalizeMessage("Generation failed");
       }
     },
     [designChat, genAI],
@@ -1169,12 +1209,25 @@ export default function AiAssistantSidebar({
       });
     }
 
-    // Allow React to mount CustomControlsSection after selection change
-    setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent("gen-ai-open-controls", { detail: { frameId } }),
-      );
-    }, alreadySelected ? 0 : 150);
+    // Retry dispatching the open event until CustomControlsSection is
+    // mounted and can handle it.  The section sets a flag on the event
+    // when it processes the request; if the flag is absent we retry.
+    let attempts = 0;
+    const maxAttempts = 8;
+    const baseDelay = alreadySelected ? 0 : 150;
+
+    const tryOpen = () => {
+      const evt = new CustomEvent("gen-ai-open-controls", {
+        detail: { frameId, _handled: false },
+      });
+      window.dispatchEvent(evt);
+      attempts++;
+      if (!(evt.detail as { _handled: boolean })._handled && attempts < maxAttempts) {
+        setTimeout(tryOpen, 150);
+      }
+    };
+
+    setTimeout(tryOpen, baseDelay);
   }, []);
 
   const canSendDesignChat =
@@ -1469,7 +1522,7 @@ export default function AiAssistantSidebar({
                     return history.map((msg, idx) => {
                       const isLastMsg = idx === history.length - 1;
                       const isStreaming =
-                        designChat.isLoading &&
+                        (designChat.isLoading || genAI.isLoading) &&
                         msg.role === "assistant" &&
                         isLastMsg;
 

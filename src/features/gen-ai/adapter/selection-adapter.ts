@@ -190,9 +190,22 @@ export function buildSelectionContext(
 
     nodes.push(objectToDescriptor(obj, objects));
 
-    // If the selected object has gen-ai spec data, include it
+    // If the selected object has gen-ai spec data, include it (stripped
+    // of the generator string which can be enormous, e.g. image grid LAYOUTS).
+    // The LLM only needs the controls list to understand existing state.
     if (obj.genAiSpec && !pluginSpec) {
-      pluginSpec = obj.genAiSpec;
+      try {
+        const spec = JSON.parse(obj.genAiSpec);
+        if (spec.generate) spec.generate = '[generator — omitted]';
+        if (Array.isArray(spec.controls)) {
+          for (const c of spec.controls) {
+            if (c.action) c.action = '[action — omitted]';
+          }
+        }
+        pluginSpec = JSON.stringify(spec);
+      } catch {
+        pluginSpec = obj.genAiSpec;
+      }
     }
   }
 

@@ -109,7 +109,11 @@ function getDefaultValue(control: UIControl): unknown {
     case "gradient-bar":
     case "fill":
       if (props.defaultValue != null) return props.defaultValue;
-      return props.stops ?? [];
+      return {
+        stops: props.stops ?? [],
+        gradientType: "linear",
+        angle: 180,
+      };
     case "curve":
       return props.defaultValue ?? [0.42, 0, 0.58, 1];
     case "3d-preview":
@@ -391,24 +395,43 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
               shrinkFrameToChildren(frameId);
             } else {
               const control = spec.controls.find((c) => c.id === controlId);
-              const actionTemplate = (control as Record<string, unknown> | undefined)?.action as
+
+              const templates: Array<{ method: string; nodeId?: string; args?: Record<string, unknown> }> = [];
+
+              const singleAction = (control as Record<string, unknown> | undefined)?.action as
                 | { method: string; nodeId?: string; args?: Record<string, unknown> }
                 | undefined;
+              const multiActions = (control as Record<string, unknown> | undefined)?.actions as
+                | Array<{ method: string; nodeId?: string; args?: Record<string, unknown> }>
+                | undefined;
 
-              if (actionTemplate) {
-                const action: ActionDescriptor = {
-                  method: actionTemplate.method,
-                  nodeId: actionTemplate.nodeId ?? frameId,
-                  args: { ...actionTemplate.args, value },
-                };
+              if (multiActions && Array.isArray(multiActions)) {
+                templates.push(...multiActions);
+              } else if (singleAction) {
+                templates.push(singleAction);
+              }
 
-                if (action.method === "resize" && action.args?.property) {
-                  const prop = action.args.property as string;
-                  delete action.args.property;
-                  action.args[prop] = value;
-                }
+              if (templates.length > 0) {
+                const objects = useAppStore.getState().objects;
+                const batch: ActionDescriptor[] = templates.map((tpl) => {
+                  const resolvedNodeId =
+                    tpl.nodeId && objects[tpl.nodeId] ? tpl.nodeId : frameId;
+                  const action: ActionDescriptor = {
+                    method: tpl.method,
+                    nodeId: resolvedNodeId,
+                    args: { ...tpl.args, value },
+                  };
 
-                executeActions([action]);
+                  if (action.method === "resize" && action.args?.property) {
+                    const prop = action.args.property as string;
+                    delete action.args.property;
+                    action.args[prop] = value;
+                  }
+
+                  return action;
+                });
+
+                executeActions(batch);
               }
             }
 

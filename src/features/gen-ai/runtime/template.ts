@@ -53,10 +53,11 @@ function getControlDefaultValue(control: UIControl): unknown {
     case 'fill': {
       if (props.defaultValue != null) return props.defaultValue;
       const stops = Array.isArray(props.stops) ? props.stops as { id: string; position: number; color: string }[] : null;
-      return stops ?? [
+      const defaultStops = stops ?? [
         { id: 'stop0', position: 0, color: '#000000' },
         { id: 'stop1', position: 1, color: '#ffffff' },
       ];
+      return { stops: defaultStops, gradientType: 'linear', angle: 180 };
     }
     case 'curve': {
       const dv = Array.isArray(props.defaultValue) ? props.defaultValue as number[] : null;

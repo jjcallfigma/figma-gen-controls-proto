@@ -494,6 +494,7 @@ function handleSetEffect(action: ActionDescriptor, tempIdMap: Map<string, string
   const obj = useAppStore.getState().objects[nodeId];
   if (!obj) return;
 
+  // Full effects array replacement
   if (args.effects && Array.isArray(args.effects)) {
     dispatch({
       type: "object.updated",
@@ -507,7 +508,51 @@ function handleSetEffect(action: ActionDescriptor, tempIdMap: Map<string, string
         previousValues: { effects: obj.effects },
       },
     });
+    return;
   }
+
+  // Per-property update on a single effect by index.
+  // Supports: { property, effectIndex, value } or scaled form { property, effectIndex, scale, offset }.
+  // The slider value is passed as args.value by the control runner.
+  const property = args.property as string | undefined;
+  const effectIndex = args.effectIndex as number | undefined;
+  if (!property || effectIndex == null) return;
+
+  const effects = obj.effects ? [...obj.effects] : [];
+  if (effectIndex < 0 || effectIndex >= effects.length) return;
+
+  const effect = { ...effects[effectIndex] };
+
+  let computed: number;
+  if (typeof args.scale === "number") {
+    const sliderVal = typeof args.value === "number" ? args.value : 0;
+    const offset = typeof args.offset === "number" ? args.offset : 0;
+    computed = Math.round(sliderVal * args.scale + offset);
+  } else {
+    computed = typeof args.value === "number" ? args.value : 0;
+  }
+
+  const propMap: Record<string, string> = {
+    radius: "blur",
+    blur: "blur",
+    spread: "spread",
+    offsetX: "offsetX",
+    offsetY: "offsetY",
+    opacity: "opacity",
+  };
+  const cloneProp = propMap[property] ?? property;
+
+  (effect as unknown as Record<string, unknown>)[cloneProp] = computed;
+  effects[effectIndex] = effect;
+
+  dispatch({
+    type: "object.updated",
+    payload: {
+      id: nodeId,
+      changes: { effects },
+      previousValues: { effects: obj.effects },
+    },
+  });
 }
 
 function handleSetProperty(action: ActionDescriptor, tempIdMap: Map<string, string>) {

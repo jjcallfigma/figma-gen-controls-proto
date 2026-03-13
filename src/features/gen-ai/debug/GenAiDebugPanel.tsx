@@ -14,7 +14,7 @@
  * from production bundles entirely.
  */
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import {
   useGenAiDebugStore,
   type DebugRecord,
@@ -202,15 +202,105 @@ function ts(timestamp: number) {
   return d.toLocaleTimeString("en-US", { hour12: false }) + "." + String(d.getMilliseconds()).padStart(3, "0");
 }
 
+// ─── Copy button ─────────────────────────────────────────────────────────────
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [text]);
+
+  return (
+    <button
+      style={{
+        ...S.btn,
+        color: copied ? "#2ECC71" : "#888",
+        borderColor: copied ? "#2ECC7155" : "#333",
+        fontSize: 9,
+        padding: "1px 5px",
+      }}
+      onClick={handleCopy}
+      title="Copy to clipboard"
+    >
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+// ─── Record serializers (for copy button) ────────────────────────────────────
+
+function serializeRecord(record: DebugRecord): string {
+  switch (record.type) {
+    case "llm-request":
+      return [
+        `[LLM Request] ${ts(record.timestamp)}`,
+        `Prompt: "${record.promptText}"`,
+        `Messages: ${record.messagesCount} | Max tokens: ${record.maxTokens} | System length: ${record.systemPromptLength}`,
+        record.autoGenerate ? "Mode: auto-generate" : "",
+        record.frameId ? `Frame: ${record.frameId}` : "",
+      ].filter(Boolean).join("\n");
+    case "llm-response":
+      return [
+        `[LLM Response] ${ts(record.timestamp)} · ${record.durationMs}ms`,
+        record.parsedOk ? "" : `Parse error: ${record.parseError}`,
+        `Actions: ${record.actionsCount} | Controls: ${record.controlsCount}`,
+        record.hasGenerator ? "Has generator" : "",
+        record.replace ? "Replace: true" : "",
+        "---",
+        record.rawText,
+      ].filter(Boolean).join("\n");
+    case "actions":
+      return [
+        `[Actions (${record.source})] ${ts(record.timestamp)} · ${record.actions.length} actions`,
+        record.rootFrameId ? `Root frame: ${record.rootFrameId}` : "",
+        ...record.actions.map((a, i) =>
+          `#${i + 1} ${a.method}${a.tempId ? ` tempId:${a.tempId}` : a.nodeId ? ` id:${a.nodeId}` : ""} ${a.argsPreview}`,
+        ),
+      ].filter(Boolean).join("\n");
+    case "control-change":
+      return [
+        `[Control: ${record.controlType}] ${ts(record.timestamp)}`,
+        `ID: ${record.controlId} | Frame: ${record.frameId}`,
+        JSON.stringify(record.value, null, 2),
+      ].join("\n");
+    case "error":
+      return [
+        `[Error] ${ts(record.timestamp)} · ${record.context}`,
+        record.message,
+        record.stack ?? "",
+      ].filter(Boolean).join("\n");
+  }
+}
+
 // ─── Record cards ────────────────────────────────────────────────────────────
+
+function CardHeader({ pill, accent, copyText, children }: {
+  pill: string;
+  accent: string;
+  copyText: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={S.cardHeader}>
+      <span style={S.pill(accent)}>{pill}</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <CopyButton text={copyText} />
+        <span style={S.meta}>{children}</span>
+      </span>
+    </div>
+  );
+}
 
 function LlmRequestCard({ r }: { r: LlmRequestRecord }) {
   return (
     <div style={S.card("#3498DB")}>
-      <div style={S.cardHeader}>
-        <span style={S.pill("#3498DB")}>LLM Request</span>
-        <span style={S.meta}>{ts(r.timestamp)}</span>
-      </div>
+      <CardHeader pill="LLM Request" accent="#3498DB" copyText={serializeRecord(r)}>
+        {ts(r.timestamp)}
+      </CardHeader>
       <div style={S.value}>
         <strong style={{ color: "#7ec8e3" }}>&ldquo;{r.promptText.slice(0, 120)}{r.promptText.length > 120 ? "…" : ""}&rdquo;</strong>
       </div>
@@ -229,10 +319,9 @@ function LlmResponseCard({ r }: { r: LlmResponseRecord }) {
   const accent = r.parsedOk ? "#2ECC71" : "#E74C3C";
   return (
     <div style={S.card(accent)}>
-      <div style={S.cardHeader}>
-        <span style={S.pill(accent)}>LLM Response{r.parsedOk ? "" : " (parse error)"}</span>
-        <span style={S.meta}>{ts(r.timestamp)} · {r.durationMs}ms</span>
-      </div>
+      <CardHeader pill={`LLM Response${r.parsedOk ? "" : " (parse error)"}`} accent={accent} copyText={serializeRecord(r)}>
+        {ts(r.timestamp)} · {r.durationMs}ms
+      </CardHeader>
       {r.parseError && <div style={{ color: "#E74C3C", fontSize: 10, marginBottom: 4 }}>{r.parseError}</div>}
       <div style={{ ...S.meta, display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
         <span>actions: <b style={{ color: "#aaa" }}>{r.actionsCount}</b></span>
@@ -248,10 +337,9 @@ function LlmResponseCard({ r }: { r: LlmResponseRecord }) {
 function ActionsCard({ r }: { r: ActionExecutionRecord }) {
   return (
     <div style={S.card("#2ECC71")}>
-      <div style={S.cardHeader}>
-        <span style={S.pill("#2ECC71")}>Actions ({r.source})</span>
-        <span style={S.meta}>{ts(r.timestamp)} · {r.actions.length} action{r.actions.length !== 1 ? "s" : ""}</span>
-      </div>
+      <CardHeader pill={`Actions (${r.source})`} accent="#2ECC71" copyText={serializeRecord(r)}>
+        {ts(r.timestamp)} · {r.actions.length} action{r.actions.length !== 1 ? "s" : ""}
+      </CardHeader>
       {r.rootFrameId && (
         <div style={{ ...S.meta, marginBottom: 4 }}>
           rootFrame: <b style={{ color: "#888" }}>{r.rootFrameId.slice(0, 12)}…</b>
@@ -282,10 +370,9 @@ function ActionsCard({ r }: { r: ActionExecutionRecord }) {
 function ControlChangeCardEl({ r }: { r: ControlChangeRecord }) {
   return (
     <div style={S.card("#E67E22")}>
-      <div style={S.cardHeader}>
-        <span style={S.pill("#E67E22")}>Control: {r.controlType}</span>
-        <span style={S.meta}>{ts(r.timestamp)}</span>
-      </div>
+      <CardHeader pill={`Control: ${r.controlType}`} accent="#E67E22" copyText={serializeRecord(r)}>
+        {ts(r.timestamp)}
+      </CardHeader>
       <div style={S.meta}>
         id: <b style={{ color: "#aaa" }}>{r.controlId}</b>
         &nbsp;·&nbsp;
@@ -301,10 +388,9 @@ function ControlChangeCardEl({ r }: { r: ControlChangeRecord }) {
 function ErrorCard({ r }: { r: ErrorRecord }) {
   return (
     <div style={S.card("#E74C3C")}>
-      <div style={S.cardHeader}>
-        <span style={S.pill("#E74C3C")}>Error</span>
-        <span style={S.meta}>{ts(r.timestamp)} · {r.context}</span>
-      </div>
+      <CardHeader pill="Error" accent="#E74C3C" copyText={serializeRecord(r)}>
+        {ts(r.timestamp)} · {r.context}
+      </CardHeader>
       <div style={{ color: "#e87" , fontSize: 10, marginBottom: r.stack ? 4 : 0 }}>{r.message}</div>
       {r.stack && (
         <pre style={{ ...S.pre, color: "#966", maxHeight: 80 }}>

@@ -26,6 +26,7 @@ alwaysApply: true
 - **Never set `size` on a control unless the user explicitly requests it.** All controls default to `"large"`. The LLM must not auto-assign `"xl"` to xy-pad or any other type.
 - **Never use `select` (dropdown) for image grid layout selection.** Always use `grid-selector` with the IMAGE_GRID_LAYOUTS preset SVGs.
 - **Never clear `rootFrameIdRef` on `replace: true` when `targetObjectId` is set.** Auto-generate targets an existing object; `replace: true` must not wipe the target reference.
+- **Never ignore `_type` and `_angle` companion params for fill controls in generators.** When a generator uses a `fill` control for multi-node color sampling, it MUST read `params.<id>_type` (`"linear"` / `"radial"`) and `params.<id>_angle` (degrees) to honor the user's gradient type and rotation. Omitting them makes the gradient picker's type/angle controls non-functional.
 
 ## CSS / Styling
 

@@ -73,8 +73,10 @@ export function CustomControlsSection({ objects }: Props) {
 
   useEffect(() => {
     const handler = (e: Event) => {
-      const frameId = (e as CustomEvent).detail?.frameId;
+      const detail = (e as CustomEvent).detail;
+      const frameId = detail?.frameId;
       if (frameId === primaryObject.id && hasControls) {
+        if (detail) detail._handled = true;
         requestAnimationFrame(() => openPopover());
       }
     };

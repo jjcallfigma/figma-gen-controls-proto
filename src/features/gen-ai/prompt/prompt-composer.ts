@@ -74,10 +74,17 @@ const MODULE_KEYWORD_MAP: ModuleKeywords[] = [
 
 const GENERATOR_KEYWORDS = /\b(grid|pattern|dots|circle|generate|create.*\d|layout|arrange|distribute|carousel|randomize|gradient|spiral|animate|scatter|wavy|noise|organic|palette|color.*scale|saturate|desaturate|darken|lighten|hue.*shift|3d|sphere|cube|fractal|tree|qr|halftone|dither|posterize|flow.*field|chart|voronoi|rough|sketch|mosaic|superformula|blob|along.*path|follow.*path|on.*path|along.*line|along.*curve|turing|reaction.?diffusion|gray.?scott|morphogenesis|circle.*pack|pack.*circle|attractor|clifford|dejong|metaball|lava.*lamp|dla|diffusion.*aggregat|coral.*growth|frost|lightning.*branch|cellular.*automat|game.*of.*life|wolfram|conway|wfc|wave.*function.*collapse|truchet|generative.*art|computational.*design|image.*grid|photo.*grid|collage|image.*layout)\b/i;
 
+const MODIFY_CONTROLS_RE =
+  /\b(add|remove|change|update|modify|adjust|tweak|set)\b.*\b(control|slider|param|dial|input|toggle|padding|margin|gap|spacing|radius|opacity|size|width|height|color|border|rotation|angle|scale|shadow|blur|stroke|font|text|offset|threshold|density|speed|intensity|count|rows|columns|amount)\b/i;
+
+const CREATE_NEW_RE =
+  /\b(create|generate|make|build|draw)\b.*\b(new|another|separate|different)\b/i;
+
 function selectModules(
   userMessage: string,
   autoGenerate: boolean,
   selectionContext: SelectionContext | null,
+  currentUISpec: UISpec | null,
 ): string {
   if (autoGenerate) {
     return CORE_PROMPT + '\n' + AUTO_GENERATE_ADDENDUM;
@@ -86,6 +93,12 @@ function selectModules(
   const hasVectorPaths = selectionContext?.nodes.some(
     n => n.vectorPaths && n.vectorPaths.length > 0,
   ) ?? false;
+
+  // When an existing spec is present and the user is modifying controls
+  // (not creating something new), skip heavy reference modules to reduce tokens.
+  const isLightweightFollowUp = !!(currentUISpec) &&
+    MODIFY_CONTROLS_RE.test(userMessage) &&
+    !CREATE_NEW_RE.test(userMessage);
 
   const parts: string[] = [CORE_PROMPT];
   const needsGenerator = GENERATOR_KEYWORDS.test(userMessage) || hasVectorPaths;
@@ -122,7 +135,7 @@ function selectModules(
   if (matched['computational']) parts.push(MODULE_COMPUTATIONAL);
   if (matched['imagegrid'])     parts.push(MODULE_IMAGE_GRID);
 
-  if (needsGenerator) {
+  if (needsGenerator && !isLightweightFollowUp) {
     // Skip bulky examples when only an image grid follow-up is needed —
     // MODULE_IMAGE_GRID already has its own example.
     const onlyImageGrid = matched['imagegrid'] &&
@@ -138,8 +151,8 @@ function selectModules(
 
 // ─── Chat history management ─────────────────────────────────────────────────
 
-const MAX_RECENT_TURNS = 4;
-const HISTORY_CHAR_BUDGET = 20_000;
+const MAX_RECENT_TURNS = 3;
+const HISTORY_CHAR_BUDGET = 12_000;
 
 /**
  * Summarises an LLM assistant response for inclusion as older history.
@@ -165,8 +178,10 @@ function summariseAssistantMessage(content: string): string {
 }
 
 /**
- * Strips the (potentially huge) generate string from a recent assistant
- * message to keep token usage manageable. Preserves the rest of the JSON.
+ * Strips bulky fields (generate string, actions array) from a recent
+ * assistant message to keep token usage manageable. Preserves the ui
+ * spec (controls) and conversational message which the LLM needs for
+ * follow-up context.
  */
 function stripGenerateFromAssistantMessage(content: string): string {
   try {
@@ -174,9 +189,26 @@ function stripGenerateFromAssistantMessage(content: string): string {
     const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fenceMatch) raw = fenceMatch[1].trim();
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && typeof parsed.generate === 'string') {
-      parsed.generate = '[generator — omitted]';
-      return JSON.stringify(parsed);
+    if (parsed && typeof parsed === 'object') {
+      let changed = false;
+      if (typeof parsed.generate === 'string') {
+        parsed.generate = '[generator — omitted]';
+        changed = true;
+      }
+      if (Array.isArray(parsed.actions) && parsed.actions.length > 0) {
+        parsed.actions = `[${parsed.actions.length} actions — omitted]`;
+        changed = true;
+      }
+      if (parsed.ui && Array.isArray(parsed.ui.controls)) {
+        for (const c of parsed.ui.controls) {
+          if (c.action) { c.action = '[omitted]'; changed = true; }
+        }
+      }
+      if (typeof parsed.actionTemplate === 'string') {
+        parsed.actionTemplate = '[omitted]';
+        changed = true;
+      }
+      if (changed) return JSON.stringify(parsed);
     }
   } catch { /* not JSON — keep as-is */ }
   return content;
@@ -257,7 +289,7 @@ export function composePrompt(
   options?: ComposeOptions,
 ): ComposedPrompt {
   const autoGenerate = options?.autoGenerate ?? false;
-  const systemPrompt = selectModules(userMessage, autoGenerate, selectionContext);
+  const systemPrompt = selectModules(userMessage, autoGenerate, selectionContext, currentUISpec);
 
   const apiMessages: ApiChatMessage[] = [];
 
@@ -280,12 +312,21 @@ export function composePrompt(
   }
 
   if (currentUISpec) {
-    // Strip the generate string from the spec to avoid sending huge code blocks
+    // Strip bulky fields from the spec to avoid sending huge code blocks
     // (including embedded LAYOUTS JSON) to the LLM. The LLM only needs the
     // controls list to understand the current state for follow-up modifications.
     const specForPrompt = { ...currentUISpec };
     if (specForPrompt.generate) {
       specForPrompt.generate = '[generator function — omitted for brevity]';
+    }
+    if (specForPrompt.actionTemplate) {
+      specForPrompt.actionTemplate = '[action template — omitted]' as unknown as typeof specForPrompt.actionTemplate;
+    }
+    if (Array.isArray(specForPrompt.controls)) {
+      specForPrompt.controls = specForPrompt.controls.map(c => {
+        if (!c.action) return c;
+        return { ...c, action: '[action — omitted]' as unknown as typeof c.action };
+      });
     }
     preambleParts.push(
       '## Current control panel spec (may be refined by this turn)\n```json\n' +
@@ -322,10 +363,17 @@ export function composePrompt(
     apiMessages.push({ role: 'user', content: finalMessage });
   }
 
-  // Pre-flight context window guard: estimate total tokens and auto-truncate if needed
-  const totalChars = systemPrompt.length + apiMessages.reduce((s, m) => s + m.content.length, 0);
-  const estimatedTokens = Math.ceil(totalChars / 4);
-  const TOKEN_SAFETY_LIMIT = 180_000;
+  // Pre-flight context window guard: estimate total tokens and auto-truncate if needed.
+  // Use a conservative limit well under Anthropic's per-minute rate limit (450K)
+  // so that back-to-back requests don't accumulate past the threshold.
+  const TOKEN_SAFETY_LIMIT = 100_000;
+
+  const computeEstimate = () => {
+    const chars = systemPrompt.length + apiMessages.reduce((s, m) => s + m.content.length, 0);
+    return Math.ceil(chars / 4);
+  };
+
+  let estimatedTokens = computeEstimate();
 
   if (estimatedTokens > TOKEN_SAFETY_LIMIT) {
     // Drop oldest conversation turns until we're under the limit
@@ -337,9 +385,19 @@ export function composePrompt(
       }
       const charsAfter = apiMessages.reduce((s, m) => s + m.content.length, 0);
       if (charsAfter === charsBefore) break;
-      const newEstimate = Math.ceil((systemPrompt.length + charsAfter) / 4);
-      if (newEstimate <= TOKEN_SAFETY_LIMIT) break;
+      estimatedTokens = computeEstimate();
+      if (estimatedTokens <= TOKEN_SAFETY_LIMIT) break;
     }
+  }
+
+  if (typeof window !== 'undefined') {
+    console.debug(
+      '[prompt-composer] system: %d chars, messages: %d (%d chars), est tokens: %d',
+      systemPrompt.length,
+      apiMessages.length,
+      apiMessages.reduce((s, m) => s + m.content.length, 0),
+      estimatedTokens,
+    );
   }
 
   return { system: systemPrompt, messages: apiMessages };

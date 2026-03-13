@@ -1863,6 +1863,9 @@ const generatorLib = {
     return { r: ((n >> 16) & 0xff) / 255, g: ((n >> 8) & 0xff) / 255, b: (n & 0xff) / 255 };
   },
 
+  // Alias — LLMs frequently confuse hexToRgb with hexToFigma
+  get hexToFigma() { return this.hexToRgb; },
+
   // --- Color: chroma-js ---
   chroma,
   chromaToFigma,
