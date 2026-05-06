@@ -10,7 +10,7 @@ You describe a tool you need. The AI returns a generator function that creates c
 
 Design tools ship a fixed set of controls: radius, opacity, shadow offset. The same knobs for everyone. But the controls you actually need depend on what you're building. A depth slider that coordinates four shadows. An xy-pad that shifts a scatter pattern. A gradient bar that recolors 200 vector cells.
 
-Switches generates these on the fly. Type a sentence, get a working tool. Follow-up prompts refine it. Or skip the prompt and select something you've already designed; the AI reads the object and builds the controls for you.
+This tool generates these on the fly. Type a sentence, get a working tool. Follow-up prompts refine it. Or skip the prompt and select something you've already designed; the AI reads the object and builds the controls for you.
 
 ---
 
@@ -29,34 +29,90 @@ The LLM writes a generator function and a control spec. The generator runs clien
 
 ### Generator runtime
 
-Generators get a runtime library: color manipulation (chroma.js), Perlin/simplex noise, easing functions, Delaunay triangulation, image processing (Canvas2D pixel access), 3D projection, L-system turtle graphics, Rough.js sketchy rendering, QR code generation, flow fields, reaction-diffusion, circle packing, metaballs, cellular automata, and others.
+Generators get a runtime library (`lib`) with the following capabilities:
+
+**Color** -- chroma.js (full color space manipulation, scales, blending), `hexToRgb`, `rgbToHex`, `lerpColor` (hex interpolation), `hslToRgb`, `randomColor`.
+
+**Noise** -- simplex-noise (`noise2D`, `noise3D`, `noise4D`) with seeded defaults and factory functions for custom seeds.
+
+**Easing** -- bezier-easing with named presets (easeIn, easeOut, etc.) and custom cubic-bezier curves.
+
+**Geometry** -- d3-delaunay (Delaunay triangulation, Voronoi diagrams), `polarToXY`, `vec2` math.
+
+**3D wireframes** -- mesh primitives (`sphere`, `cube`, `torus`), `rotate3D`, `project3D`, `meshToSinglePath` for clean single-path wireframe rendering.
+
+**3D voxel art** -- heerich.js (`lib.Heerich`). Integer-grid voxel engine with boolean operations (union, subtract, intersect, exclude), per-face and functional styling, camera control (oblique/perspective), and SVG output. Supports boxes, spheres, lines, arbitrary geometry via test functions, voxel scaling, and 90-degree rotations. Voxel scenes render directly into vector nodes via the `setSvgContent` action.
+
+**Generative shapes** -- superformula (organic curves), L-systems (lindenmayer, fractals and plants), flow fields (streamline computation), reaction-diffusion (Turing patterns).
+
+**Computational design** -- circle packing, strange attractors, metaballs, diffusion-limited aggregation, cellular automata, wave function collapse.
+
+**Charts** -- paths-js (Bar, Pie, SmoothLine, Radar, Stock, Waterfall, Sankey).
+
+**Sketchy rendering** -- Rough.js for hand-drawn style lines, shapes, and arcs.
+
+**Image processing** -- Canvas2D pixel access (`getPixel`, `getBrightness`, `sampleGrid`), `stackBlur`, error-diffusion dithering (Floyd-Steinberg and others), color quantization (RgbQuant), `processImage` for arbitrary Canvas2D operations.
+
+**SVG utilities** -- `samplePath` (points along a path), `pathBounds`, QR code generation.
+
+**Math** -- seeded PRNG (`random`, `randomInt`, `reseed`, `shuffle`), `lerp`, `clamp`, `mapRange`, `distribute`, angle conversions.
 
 ### Local generators
 
-Some generators are built-in and skip the LLM. The image grid generator triggers when you select 2+ images and type "image grid." It runs locally and produces a layout with a grid selector, gap slider, corner radius, and background color.
+Some generators are built-in and skip the LLM. The image grid generator triggers when you select 2+ images and type "image grid." It runs locally and produces a layout with a grid selector, gap slider, corner radius, and background color. The dark mode demo intercepts "dark mode" + "generate/controls" prompts to produce a pre-baked palette-driven theme switcher.
+
+### Prompt modules
+
+The system prompt is assembled from keyword-matched modules. When a user prompt contains relevant terms (e.g. "voxel", "wireframe", "superformula", "rough", "l-system"), only the matching library documentation is included. This keeps token usage low for simple requests while providing full API docs when needed.
 
 ---
 
 ## Control types
 
-| Type | Description |
-|---|---|
-| `slider` | Horizontal numeric slider with inline editable value |
-| `range` | Dual-handle slider for min/max ranges |
-| `dial` | Circular angle knob |
-| `xy-pad` | 2D crosshair pad for offsets and directions |
-| `color` | Hex color picker with swatch (single solid color) |
-| `fill` | Fill picker: solid, linear/radial/angular gradients with editable stops |
-| `curve` | Cubic bezier editor for easing and distribution curves |
-| `3d-preview` | Interactive 3D cube for rotation (rx, ry, rz) |
-| `grid-selector` | 2x3 grid of selectable SVG thumbnails for layout/style presets |
-| `toggle` | Boolean on/off |
-| `select` | Dropdown |
-| `segmented` | Multi-option pill selector |
-| `number` | Numeric input with stepping |
-| `text` | Text input |
+
+| Type               | Description                                                             |
+| ------------------ | ----------------------------------------------------------------------- |
+| `slider`           | Horizontal numeric slider with inline editable value                    |
+| `range`            | Dual-handle slider for min/max ranges                                   |
+| `dial`             | Circular angle knob                                                     |
+| `xy-pad`           | 2D crosshair pad for offsets and directions                             |
+| `color`            | Hex color picker with swatch (single solid color)                       |
+| `fill`             | Fill picker: solid, linear/radial/angular gradients with editable stops |
+| `curve`            | Cubic bezier editor for easing and distribution curves                  |
+| `3d-preview`       | Interactive 3D cube for rotation (rx, ry, rz), drag to rotate           |
+| `grid-selector`    | Grid of selectable SVG thumbnails for layout/style presets              |
+| `palette-carousel` | Color palette stripes with chevron navigation and an action button      |
+| `toggle`           | Boolean on/off                                                          |
+| `select`           | Dropdown                                                                |
+| `segmented`        | Multi-option pill selector                                              |
+| `number`           | Numeric input with stepping                                             |
+| `text`             | Text input                                                              |
+
 
 Three sizes: `large` (default, horizontal label + control), `small` (compact horizontal), `xl` (vertical, label above, full width).
+
+---
+
+## Action types
+
+Actions are declarative objects that the generator returns to mutate the canvas. The action adapter executes them against the store.
+
+
+| Method            | Description                                                                                                    |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- |
+| `createFrame`     | Create a frame with position, size, fills, name                                                                |
+| `createRectangle` | Create a rectangle                                                                                             |
+| `createEllipse`   | Create an ellipse                                                                                              |
+| `createVector`    | Create a vector node from SVG path data                                                                        |
+| `createText`      | Create a text node                                                                                             |
+| `setFill`         | Update an object's fills                                                                                       |
+| `setStroke`       | Update an object's strokes                                                                                     |
+| `setProperty`     | Update arbitrary properties (opacity, corner radius, effects, etc.)                                            |
+| `resize`          | Change an object's dimensions                                                                                  |
+| `setSvgContent`   | Inject full SVG markup into a vector node (auto-extracts viewBox, strips `<svg>` wrapper, resizes node to fit) |
+
+
+Actions support `tempId` for referencing nodes created in the same generator run. Parent-child relationships are wired via `parentId`.
 
 ---
 
@@ -100,7 +156,7 @@ Main components (purple diamond) and instances (green diamond). Changes to a mai
 
 ### Vectors
 
-SVG path data, vector networks, boolean operations, winding rules. Point-level editing.
+SVG path data and full SVG content. Vectors can hold either a single path (`vectorPaths`) or complete SVG markup (`svgContent` with `svgViewBox`). The latter is used by generators that produce complex multi-element SVG (e.g. heerich.js voxel scenes).
 
 ### Images
 
@@ -136,6 +192,7 @@ Light and dark modes via Figma design tokens (CSS custom properties). System pre
 - Zustand + Immer (event-sourced) + transient store
 - Radix UI / shadcn + FigUI3 (`@rogieking/figui3`)
 - Custom DOM-based renderer
+- heerich.js (3D voxel engine)
 
 ---
 

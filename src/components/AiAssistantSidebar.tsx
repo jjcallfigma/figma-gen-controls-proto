@@ -36,6 +36,7 @@ import { Input } from "./ui/input";
 import { deriveTitle, formatRelativeTime } from "@/core/utils/chatUtils";
 import { useGenAI } from "@/features/gen-ai/hooks/useGenAI";
 import { MOCK_CONTROLS, getMockControlKeys } from "@/features/gen-ai/demo/mock-controls";
+import { buildDarkModeSpec } from "@/features/gen-ai/demo/dark-mode-demo";
 import { nanoid } from "nanoid";
 
 // ─── Make Chat View ──────────────────────────────────────────────────
@@ -1172,6 +1173,91 @@ export default function AiAssistantSidebar({
         }
         return;
       }
+    }
+
+    // Pre-baked dark mode demo: intercept before live API call
+    const isDarkModeDemo =
+      selectedIds.length === 1 &&
+      /\bdark\s*mode\b/i.test(text) &&
+      /\b(generate|create|make|build|controls?)\b/i.test(text);
+
+    if (isDarkModeDemo) {
+      designChat.setMessage("");
+      const frameId = selectedIds[0];
+
+      const userMsgId = nanoid();
+      const activityMsgId = nanoid();
+
+      designChat.injectMessage({
+        id: userMsgId,
+        role: "user",
+        content: text,
+        timestamp: Date.now(),
+      });
+
+      designChat.injectMessage({
+        id: activityMsgId,
+        role: "assistant",
+        content: "",
+        timestamp: Date.now(),
+      });
+
+      const shimmerGroupKey = `gen-ai-${nanoid(6)}`;
+      useAppStore.getState().setAiEditingObjectsGroup(shimmerGroupKey, [frameId], true);
+
+      // Fake AI thinking phases
+      setTimeout(() => {
+        designChat.updateMessage(activityMsgId, {
+          toolCalls: [{ id: "tc-inspect", name: "inspect_canvas", status: "running" as const }],
+        });
+      }, 800);
+
+      setTimeout(() => {
+        designChat.updateMessage(activityMsgId, {
+          toolCalls: [{ id: "tc-generate", name: "generate_controls", status: "running" as const }],
+        });
+      }, 2200);
+
+      setTimeout(() => {
+        const spec = buildDarkModeSpec(frameId, useAppStore.getState().objects);
+        const specJson = JSON.stringify(spec);
+
+        // Stamp the spec on the frame
+        useAppStore.getState().dispatch({
+          type: "object.updated",
+          payload: {
+            id: frameId,
+            changes: { genAiSpec: specJson, genAiValues: undefined },
+            previousValues: {},
+          },
+        });
+
+        genAI.restoreFromFrame(frameId, specJson);
+
+        useAppStore.getState().setAiEditingObjectsGroup(shimmerGroupKey, [frameId], true);
+        setTimeout(() => {
+          useAppStore.getState().setAiEditingObjectsGroup(shimmerGroupKey, [], false);
+        }, 600);
+
+        designChat.updateMessage(activityMsgId, {
+          content: "Dark Mode Controls",
+          messageType: "make_activity",
+          makeActivityDone: true,
+          genAiFrameId: frameId,
+          toolCalls: [],
+        });
+
+        // Open the controls popover via custom event
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent("gen-ai-open-controls", {
+              detail: { frameId },
+            }),
+          );
+        }, 300);
+      }, 3500);
+
+      return;
     }
 
     let promptText = text;

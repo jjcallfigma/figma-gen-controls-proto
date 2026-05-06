@@ -290,6 +290,8 @@ export interface UISpec {
   imageNodeId?: string;
   /** Max pixel width for image export. Default 100 for sampling generators, set 400-800 for bitmap effects. */
   imageMaxWidth?: number;
+  /** When true, skip shrinkFrameToChildren after generator runs (preserves original frame dimensions). */
+  noShrink?: boolean;
   controls: UIControl[];
 }
 
@@ -311,7 +313,8 @@ export interface UIControl {
     | 'fill'
     | 'curve'
     | '3d-preview'
-    | 'grid-selector';
+    | 'grid-selector'
+    | 'palette-carousel';
   label?: string;
   size?: 'large' | 'small' | 'xl';
   props?: Record<string, unknown>;

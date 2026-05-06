@@ -1,0 +1,16 @@
+[2026-04-07T16:31:05.507Z] [activate] workspace mode: hub
+[2026-04-07T16:31:05.508Z] [activate] hub mode — auto-showing sidebar
+[2026-04-07T16:31:05.520Z] [perf] webview HTML set in 7ms
+[2026-04-07T16:31:06.602Z] [perf] webview ready received
+[2026-04-07T16:31:06.603Z] [perf] skipping init/sendData (embedded in HTML)
+[2026-04-07T16:31:06.606Z] [perf] ready handler total: 3ms
+[2026-04-07T16:31:08.208Z] [update-check] buildVersion=1.0.2 latestTag=1.0.3
+[2026-04-07T16:31:09.693Z] [perf] runDoctor: 3090ms
+[2026-04-07T19:46:34.246Z] [activate] workspace mode: hub
+[2026-04-07T19:46:34.254Z] [activate] hub mode — auto-showing sidebar
+[2026-04-07T19:46:35.388Z] [perf] webview HTML set in 10ms
+[2026-04-07T19:46:35.802Z] [perf] webview ready received
+[2026-04-07T19:46:35.802Z] [perf] skipping init/sendData (embedded in HTML)
+[2026-04-07T19:46:35.838Z] [perf] ready handler total: 36ms
+[2026-04-07T19:46:50.992Z] [update-check] error: Command failed: git ls-remote git@github.com:figma/ai-prototype-scaffold.git 'refs/tags/extension-v*'
+

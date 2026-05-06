@@ -726,6 +726,74 @@ function handleApplyImageFill(action: ActionDescriptor, tempIdMap: Map<string, s
   });
 }
 
+/**
+ * Unwrap a full `<svg ...>...</svg>` string: extract its viewBox and inner markup.
+ * If the string is not a complete SVG document, returns it unchanged.
+ */
+function unwrapSvg(raw: string): { inner: string; viewBox?: string } {
+  const openMatch = raw.match(/^[\s]*<svg\b[^>]*>/i);
+  if (!openMatch) return { inner: raw };
+
+  const closeIdx = raw.lastIndexOf("</svg>");
+  const inner = closeIdx > 0
+    ? raw.slice(openMatch[0].length, closeIdx)
+    : raw.slice(openMatch[0].length);
+
+  const vbMatch = openMatch[0].match(/viewBox=["']([^"']+)["']/i);
+  return { inner, viewBox: vbMatch?.[1] };
+}
+
+function handleSetSvgContent(action: ActionDescriptor, tempIdMap: Map<string, string>) {
+  const dispatch = useAppStore.getState().dispatch;
+  const args = (action.args ?? {}) as Args;
+  const nodeId = resolveId(action.nodeId, tempIdMap);
+  if (!nodeId) return;
+
+  const obj = useAppStore.getState().objects[nodeId];
+  if (!obj) return;
+
+  const existingProps = (obj.properties ?? {}) as Record<string, unknown>;
+  const updatedProps: Record<string, unknown> = { ...existingProps };
+
+  let content = typeof args.content === "string" ? args.content : undefined;
+  let viewBox = typeof args.viewBox === "string" ? args.viewBox : undefined;
+
+  if (content) {
+    const unwrapped = unwrapSvg(content);
+    content = unwrapped.inner;
+    if (!viewBox && unwrapped.viewBox) {
+      viewBox = unwrapped.viewBox;
+    }
+  }
+
+  if (content !== undefined) updatedProps.svgContent = content;
+  if (viewBox !== undefined) updatedProps.svgViewBox = viewBox;
+
+  const changes: Record<string, unknown> = { properties: updatedProps };
+
+  if (viewBox) {
+    const parts = viewBox.split(/[\s,]+/).map(Number);
+    if (parts.length === 4 && parts.every((n) => isFinite(n))) {
+      const [, , vbW, vbH] = parts;
+      if (vbW > 0 && vbH > 0) {
+        changes.width = Math.ceil(vbW);
+        changes.height = Math.ceil(vbH);
+      }
+    }
+  }
+
+  dispatch({
+    type: "object.updated",
+    payload: {
+      id: nodeId,
+      changes: changes as Partial<CanvasObject>,
+      previousValues: {
+        properties: existingProps,
+      } as Partial<CanvasObject>,
+    },
+  });
+}
+
 // ─── Main executor ───────────────────────────────────────────────────
 
 /**
@@ -807,6 +875,9 @@ export function executeActions(
           break;
         case "applyImageFill":
           handleApplyImageFill(action, tempIdMap);
+          break;
+        case "setSvgContent":
+          handleSetSvgContent(action, tempIdMap);
           break;
         default:
           console.warn(`[action-adapter] Unknown method: ${action.method}`);

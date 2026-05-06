@@ -21,6 +21,7 @@ import {
   MODULE_EXAMPLES,
   MODULE_COMPUTATIONAL,
   MODULE_IMAGE_GRID,
+  MODULE_VOXEL,
 } from './prompt-modules';
 import type { SelectionContext, UISpec } from '../types';
 
@@ -70,9 +71,10 @@ const MODULE_KEYWORD_MAP: ModuleKeywords[] = [
   { module: 'pattern',   keywords: /\b(pattern.*fill|applyPattern|tile.*pattern|patternize|hexagonal.*tile)\b/i },
   { module: 'computational', keywords: /\b(circle.*pack|pack.*circle|attractor|clifford|dejong|lorenz|metaball|blob.*merge|lava.*lamp|dla|diffusion.*aggregat|coral.*growth|frost|lightning.*branch|crystal.*growth|cellular.*automat|game.*of.*life|wolfram|rule.*30|rule.*90|rule.*110|conway|wfc|wave.*function.*collapse|truchet|tile.*generation|constraint.*tile|generative.*art|computational.*design)\b/i },
   { module: 'imagegrid', keywords: /\b(image|photo|picture)\s*(grid|collage|layout|mosaic|montage)\b|\bgrid\b.*\b(image|photo|picture|these)s?\b|\b(image|photo|picture)s?\b.*\b(grid|in\s+a\s+grid)\b|\b(create|make|build|arrange|lay\s*out)\b.*\b(grid|collage|mosaic)\b/i },
+  { module: 'voxel',    keywords: /\b(voxel|heerich|isometric.*block|block.*art|pixel.*3d|carved.*block)\b/i },
 ];
 
-const GENERATOR_KEYWORDS = /\b(grid|pattern|dots|circle|generate|create.*\d|layout|arrange|distribute|carousel|randomize|gradient|spiral|animate|scatter|wavy|noise|organic|palette|color.*scale|saturate|desaturate|darken|lighten|hue.*shift|3d|sphere|cube|fractal|tree|qr|halftone|dither|posterize|flow.*field|chart|voronoi|rough|sketch|mosaic|superformula|blob|along.*path|follow.*path|on.*path|along.*line|along.*curve|turing|reaction.?diffusion|gray.?scott|morphogenesis|circle.*pack|pack.*circle|attractor|clifford|dejong|metaball|lava.*lamp|dla|diffusion.*aggregat|coral.*growth|frost|lightning.*branch|cellular.*automat|game.*of.*life|wolfram|conway|wfc|wave.*function.*collapse|truchet|generative.*art|computational.*design|image.*grid|photo.*grid|collage|image.*layout)\b/i;
+const GENERATOR_KEYWORDS = /\b(grid|pattern|dots|circle|generate|create.*\d|layout|arrange|distribute|carousel|randomize|gradient|spiral|animate|scatter|wavy|noise|organic|palette|color.*scale|saturate|desaturate|darken|lighten|hue.*shift|3d|sphere|cube|fractal|tree|qr|halftone|dither|posterize|flow.*field|chart|voronoi|rough|sketch|mosaic|superformula|blob|along.*path|follow.*path|on.*path|along.*line|along.*curve|turing|reaction.?diffusion|gray.?scott|morphogenesis|circle.*pack|pack.*circle|attractor|clifford|dejong|metaball|lava.*lamp|dla|diffusion.*aggregat|coral.*growth|frost|lightning.*branch|cellular.*automat|game.*of.*life|wolfram|conway|wfc|wave.*function.*collapse|truchet|generative.*art|computational.*design|image.*grid|photo.*grid|collage|image.*layout|voxel|heerich|isometric.*block)\b/i;
 
 const MODIFY_CONTROLS_RE =
   /\b(add|remove|change|update|modify|adjust|tweak|set)\b.*\b(control|slider|param|dial|input|toggle|padding|margin|gap|spacing|radius|opacity|size|width|height|color|border|rotation|angle|scale|shadow|blur|stroke|font|text|offset|threshold|density|speed|intensity|count|rows|columns|amount)\b/i;
@@ -134,6 +136,7 @@ function selectModules(
   if (matched['pattern'])   parts.push(MODULE_PATTERN);
   if (matched['computational']) parts.push(MODULE_COMPUTATIONAL);
   if (matched['imagegrid'])     parts.push(MODULE_IMAGE_GRID);
+  if (matched['voxel'])         parts.push(MODULE_VOXEL);
 
   if (needsGenerator && !isLightweightFollowUp) {
     // Skip bulky examples when only an image grid follow-up is needed —

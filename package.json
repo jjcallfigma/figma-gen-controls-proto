@@ -45,6 +45,7 @@
     "color": "^5.0.0",
     "d3-delaunay": "^6.0.4",
     "framer-motion": "^12.29.2",
+    "heerich": "^0.5.0",
     "idb": "^8.0.3",
     "immer": "^10.1.1",
     "lindenmayer": "^1.5.4",

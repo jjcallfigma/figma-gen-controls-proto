@@ -26,6 +26,9 @@ import LSystem from 'lindenmayer';
 // @ts-ignore — qrcode-svg has no types
 import QRCode from 'qrcode-svg';
 
+// @ts-ignore — heerich has no types
+import { Heerich } from 'heerich';
+
 // @ts-ignore — stackblur-canvas exports mismatch
 import { imageDataRGBA as _stackBlurRGBA, imageDataRGB as _stackBlurRGB } from 'stackblur-canvas';
 
@@ -1863,6 +1866,19 @@ const generatorLib = {
     return { r: ((n >> 16) & 0xff) / 255, g: ((n >> 8) & 0xff) / 255, b: (n & 0xff) / 255 };
   },
 
+  rgbToHex(r: number, g: number, b: number): string {
+    const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+    return '#' + [clamp(r), clamp(g), clamp(b)].map(v => v.toString(16).padStart(2, '0')).join('');
+  },
+
+  lerpColor(hex1: string, hex2: string, t: number): string {
+    const parse = (h: string) => { const n = parseInt(h.replace('#', ''), 16); return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff]; };
+    const [r1, g1, b1] = parse(hex1);
+    const [r2, g2, b2] = parse(hex2);
+    const mix = (a: number, b: number) => Math.round(a + (b - a) * t);
+    return '#' + [mix(r1, r2), mix(g1, g2), mix(b1, b2)].map(v => v.toString(16).padStart(2, '0')).join('');
+  },
+
   // Alias — LLMs frequently confuse hexToRgb with hexToFigma
   get hexToFigma() { return this.hexToRgb; },
 
@@ -2049,6 +2065,9 @@ const generatorLib = {
     }
     return bytes;
   },
+
+  // --- Voxel engine (heerich.js) ---
+  Heerich,
 };
 
 /**

@@ -143,3 +143,145 @@ Choose a default layout that best fits the number of provided images.
 `;
 
 export const MODULE_EXAMPLES = "### Generator example: colorful circle grid\n\n{\n  \"actions\": [],\n  \"ui\": {\n    \"replace\": true,\n    \"controls\": [\n      { \"id\": \"columns\", \"type\": \"slider\", \"label\": \"Columns\", \"props\": { \"min\": 2, \"max\": 12, \"step\": 1, \"defaultValue\": 6 } },\n      { \"id\": \"size\", \"type\": \"slider\", \"label\": \"Circle Size\", \"props\": { \"min\": 8, \"max\": 48, \"step\": 1, \"defaultValue\": 16 } },\n      { \"id\": \"spacing\", \"type\": \"slider\", \"label\": \"Spacing\", \"props\": { \"min\": 0, \"max\": 24, \"step\": 1, \"defaultValue\": 8 } }\n    ]\n  },\n  \"generate\": \"const cols = params.columns || 6;\\\\nconst size = params.size || 16;\\\\nconst spacing = params.spacing || 8;\\\\nconst frameW = cols * (size + spacing) - spacing;\\\\nconst actions = [];\\\\nactions.push({ method: 'createFrame', tempId: 'grid', args: { x: 100, y: 100, width: frameW, height: frameW, name: 'Circle Grid' } });\\\\nfor (let row = 0; row < cols; row++) {\\\\n  for (let col = 0; col < cols; col++) {\\\\n    const x = col * (size + spacing);\\\\n    const y = row * (size + spacing);\\\\n    actions.push({ method: 'createEllipse', parentId: 'grid', args: { x: x, y: y, width: size, height: size } });\\\\n    const color = lib.randomColor();\\\\n    actions.push({ method: 'setFill', nodeId: '__prev', args: { fills: [{ type: 'SOLID', color: color }] } });\\\\n  }\\\\n}\\\\nreturn actions;\"\n}\n\n### Generator example: halftone dot pattern from image\n\nThis example shows how to use imageNodeId and pixel data to create a halftone effect.\nThe generator samples brightness from the image and creates proportionally-sized dots.\n\n{\n  \"actions\": [],\n  \"ui\": {\n    \"replace\": true,\n    \"imageNodeId\": \"10:5\",\n    \"controls\": [\n      { \"id\": \"density\", \"type\": \"slider\", \"label\": \"Dot Density\", \"props\": { \"min\": 10, \"max\": 60, \"step\": 1, \"defaultValue\": 30 } },\n      { \"id\": \"maxDot\", \"type\": \"slider\", \"label\": \"Max Dot Size\", \"props\": { \"min\": 2, \"max\": 20, \"step\": 1, \"defaultValue\": 8 } },\n      { \"id\": \"bgColor\", \"type\": \"color\", \"label\": \"Background\", \"props\": { \"defaultValue\": \"#FFFFFF\" } }\n    ]\n  },\n  \"generate\": \"const cols = params.density || 30;\\\\nconst maxDot = params.maxDot || 8;\\\\nconst bg = lib.hexToRgb(params.bgColor || '#FFFFFF');\\\\nconst img = lib.imageData;\\\\nconst rows = Math.round(cols * (img.height / img.width));\\\\nconst cellW = maxDot + 2;\\\\nconst frameW = cols * cellW;\\\\nconst frameH = rows * cellW;\\\\nconst grid = lib.sampleGrid(cols, rows);\\\\nconst actions = [];\\\\nactions.push({ method: 'createFrame', tempId: 'halftone', args: { x: 0, y: 0, width: frameW, height: frameH, name: 'Halftone' } });\\\\nactions.push({ method: 'setFill', nodeId: 'halftone', args: { fills: [{ type: 'SOLID', color: bg }] } });\\\\nfor (let r = 0; r < rows; r++) {\\\\n  for (let c = 0; c < cols; c++) {\\\\n    const b = 1 - grid[r][c].brightness;\\\\n    const size = Math.max(1, b * maxDot);\\\\n    const cx = c * cellW + cellW / 2 - size / 2;\\\\n    const cy = r * cellW + cellW / 2 - size / 2;\\\\n    actions.push({ method: 'createEllipse', parentId: 'halftone', args: { x: cx, y: cy, width: size, height: size } });\\\\n    actions.push({ method: 'setFill', nodeId: '__prev', args: { fills: [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 } }] } });\\\\n  }\\\\n}\\\\nreturn actions;\"\n}\n\n### Generator example: Voronoi image mosaic\n\nThis example uses lib.Delaunay + createVector + image pixel data to create an organic\nstained-glass mosaic from a selected image. Each cell is a real editable Figma vector.\n\n{\n  \"actions\": [],\n  \"ui\": {\n    \"replace\": true,\n    \"imageNodeId\": \"10:5\",\n    \"controls\": [\n      { \"id\": \"cells\", \"type\": \"slider\", \"label\": \"Cell Count\", \"props\": { \"min\": 20, \"max\": 300, \"step\": 1, \"defaultValue\": 80 } },\n      { \"id\": \"strokeW\", \"type\": \"slider\", \"label\": \"Border Width\", \"props\": { \"min\": 0, \"max\": 6, \"step\": 0.5, \"defaultValue\": 1 } },\n      { \"id\": \"strokeColor\", \"type\": \"color\", \"label\": \"Border Color\", \"props\": { \"defaultValue\": \"#000000\" } }\n    ]\n  },\n  \"generate\": \"const n = params.cells || 80;\\\\nconst sw = params.strokeW ?? 1;\\\\nconst sc = lib.hexToRgb(params.strokeColor || '#000000');\\\\nconst img = lib.imageData;\\\\nconst W = 400;\\\\nconst H = Math.round(W * (img.height / img.width));\\\\nconst points = [];\\\\nfor (let i = 0; i < n; i++) points.push([lib.random() * W, lib.random() * H]);\\\\nconst voronoi = lib.Delaunay.from(points).voronoi([0, 0, W, H]);\\\\nconst actions = [];\\\\nactions.push({ method: 'createFrame', tempId: 'mosaic', args: { x: 0, y: 0, width: W, height: H, name: 'Voronoi Mosaic' } });\\\\nfor (let i = 0; i < n; i++) {\\\\n  const path = voronoi.renderCell(i);\\\\n  const px = Math.round(points[i][0] * (img.width / W));\\\\n  const py = Math.round(points[i][1] * (img.height / H));\\\\n  const pixel = lib.getPixel(px, py);\\\\n  const color = { r: pixel.r / 255, g: pixel.g / 255, b: pixel.b / 255 };\\\\n  actions.push({ method: 'createVector', parentId: 'mosaic', args: { data: path } });\\\\n  actions.push({ method: 'setFill', nodeId: '__prev', args: { fills: [{ type: 'SOLID', color: color }] } });\\\\n  if (sw > 0) actions.push({ method: 'setStroke', nodeId: '__prev', args: { strokes: [{ type: 'SOLID', color: sc }], weight: sw } });\\\\n}\\\\nreturn actions;\"\n}\n\n### Generator example: 3D wireframe sphere\n\nThis example shows how to use lib.sphere + lib.rotate3D + lib.project3D + lib.pointsToSvgPath\nto render a 3D wireframe as editable Figma vectors. Controls for X/Y rotation and segment count.\n\n{\n  \"actions\": [],\n  \"ui\": {\n    \"replace\": true,\n    \"controls\": [\n      { \"id\": \"rx\", \"type\": \"dial\", \"label\": \"Rotate X\", \"props\": { \"min\": -180, \"max\": 180, \"step\": 1, \"defaultValue\": 30 } },\n      { \"id\": \"ry\", \"type\": \"dial\", \"label\": \"Rotate Y\", \"props\": { \"min\": -180, \"max\": 180, \"step\": 1, \"defaultValue\": 45 } },\n      { \"id\": \"segments\", \"type\": \"slider\", \"label\": \"Segments\", \"props\": { \"min\": 4, \"max\": 20, \"step\": 1, \"defaultValue\": 10 } },\n      { \"id\": \"color\", \"type\": \"color\", \"label\": \"Stroke Color\", \"props\": { \"defaultValue\": \"#3B82F6\" } }\n    ]\n  },\n  \"generate\": \"const SIZE = 300; const cx = SIZE/2; const cy = SIZE/2; const mesh = lib.sphere(120, Math.round(params.segments)); const rotated = mesh.vertices.map(v => lib.rotate3D(v, params.rx, params.ry, 0)); const projected = rotated.map(v => lib.project3D(v, 500)); const sorted = mesh.faces.slice().sort((a,b) => { const az = a.reduce((s,i)=>s+rotated[i].z,0)/a.length; const bz = b.reduce((s,i)=>s+rotated[i].z,0)/b.length; return az - bz; }); const actions = []; actions.push({ method: 'createFrame', tempId: 'root', args: { x: 0, y: 0, width: SIZE, height: SIZE, name: '3D Sphere' } }); const col = lib.chroma(params.color || '#3B82F6'); for (const face of sorted) { const pts = face.map(i => ({ x: cx + projected[i].x, y: cy + projected[i].y })); const path = lib.pointsToSvgPath(pts, true); const avgZ = face.reduce((s,i)=>s+rotated[i].z,0)/face.length; const lightness = lib.mapRange(avgZ, -120, 120, 0.4, 1); const fc = col.luminance(lightness * 0.25); actions.push({ method: 'createVector', parentId: 'root', args: { data: path, name: 'face', fills: [{ type: 'SOLID', color: lib.chromaToFigma(fc), opacity: 0.9 }], strokes: [] } }); } return actions;\"\n}\n\n### Generator example: patternize selected node\n\nThis example tiles whatever node the user currently has selected, using lib.selectionId as\nthe pattern source. No node creation — the selected frame/vector becomes the repeating tile.\n\n{\n  \"actions\": [],\n  \"ui\": {\n    \"replace\": true,\n    \"controls\": [\n      { \"id\": \"tileType\", \"type\": \"segmented\", \"label\": \"Tile Type\", \"props\": { \"options\": [{ \"value\": \"RECTANGULAR\", \"label\": \"Grid\" }, { \"value\": \"HORIZONTAL_HEXAGONAL\", \"label\": \"Hex H\" }, { \"value\": \"VERTICAL_HEXAGONAL\", \"label\": \"Hex V\" }], \"defaultValue\": \"RECTANGULAR\" } },\n      { \"id\": \"scale\", \"type\": \"slider\", \"label\": \"Scale\", \"props\": { \"min\": 0.1, \"max\": 2, \"step\": 0.05, \"defaultValue\": 1 } },\n      { \"id\": \"spacing\", \"type\": \"slider\", \"label\": \"Gap\", \"props\": { \"min\": 0, \"max\": 0.5, \"step\": 0.05, \"defaultValue\": 0 } },\n      { \"id\": \"size\", \"type\": \"slider\", \"label\": \"Canvas Size\", \"props\": { \"min\": 200, \"max\": 1200, \"step\": 100, \"defaultValue\": 600 } }\n    ]\n  },\n  \"generate\": \"if (!lib.selectionId) { return []; } const sz = params.size || 600; const actions = []; actions.push({ method: 'createFrame', tempId: 'root', args: { x: 0, y: 0, width: sz, height: sz, name: 'Tiled Pattern' } }); actions.push({ method: 'applyPatternFill', parentId: 'root', args: { sourceNodeId: lib.selectionId, tileType: params.tileType || 'RECTANGULAR', scalingFactor: params.scale || 1, spacingX: params.spacing || 0, spacingY: params.spacing || 0, width: sz, height: sz, name: 'pattern' } }); return actions;\"\n}\n\n### Generator example: fractal tree (lib.LSystem)\n\nThis example uses lib.LSystem to generate a fractal tree with turtle graphics interpretation.\n\n{\n  \"actions\": [],\n  \"ui\": {\n    \"replace\": true,\n    \"controls\": [\n      { \"id\": \"iterations\", \"type\": \"slider\", \"label\": \"Iterations\", \"props\": { \"min\": 1, \"max\": 6, \"step\": 1, \"defaultValue\": 4 } },\n      { \"id\": \"angle\", \"type\": \"slider\", \"label\": \"Branch Angle\", \"props\": { \"min\": 10, \"max\": 50, \"step\": 1, \"defaultValue\": 25 } },\n      { \"id\": \"length\", \"type\": \"slider\", \"label\": \"Segment Length\", \"props\": { \"min\": 1, \"max\": 15, \"step\": 0.5, \"defaultValue\": 6 } },\n      { \"id\": \"color\", \"type\": \"color\", \"label\": \"Color\", \"props\": { \"defaultValue\": \"#1E3A2F\" } }\n    ]\n  },\n  \"generate\": \"const SZ = 500;\\\\nconst lsys = new lib.LSystem({ axiom: 'F', productions: { 'F': 'FF+[+F-F-F]-[-F+F+F]' } });\\\\nconst result = lsys.iterate(params.iterations || 4);\\\\nlet x = SZ/2, y = SZ - 20, ang = -90;\\\\nconst stack = [];\\\\nlet path = 'M ' + x + ' ' + y;\\\\nconst segLen = params.length || 6;\\\\nconst bAngle = params.angle || 25;\\\\nfor (const ch of result) {\\\\n  if (ch === 'F') { x += Math.cos(ang * Math.PI / 180) * segLen; y += Math.sin(ang * Math.PI / 180) * segLen; path += ' L ' + x.toFixed(2) + ' ' + y.toFixed(2); }\\\\n  else if (ch === '+') { ang += bAngle; }\\\\n  else if (ch === '-') { ang -= bAngle; }\\\\n  else if (ch === '[') { stack.push({ x, y, ang }); }\\\\n  else if (ch === ']') { const s = stack.pop(); x = s.x; y = s.y; ang = s.ang; path += ' M ' + x.toFixed(2) + ' ' + y.toFixed(2); }\\\\n}\\\\nconst col = lib.hexToRgb(params.color || '#1E3A2F');\\\\nconst actions = [];\\\\nactions.push({ method: 'createFrame', tempId: 'root', args: { x: 0, y: 0, width: SZ, height: SZ, name: 'Fractal Tree' } });\\\\nactions.push({ method: 'createVector', parentId: 'root', args: { data: path, name: 'tree', strokes: [{ type: 'SOLID', color: col, opacity: 1 }], fills: [] } });\\\\nactions.push({ method: 'setStroke', nodeId: '__prev', args: { strokes: [{ type: 'SOLID', color: col }], weight: 1 } });\\\\nreturn actions;\"\n}\n\n### Generator example: hand-drawn sketchy rectangle (lib.rough)\n\nlib.rough draws shapes with a hand-drawn, sketchy appearance. Every method returns\nRoughPathInfo[] — an array of { d, stroke, strokeWidth, fill } objects. The \"d\" string\nis a ready-to-use SVG path for createVector. Typically a shape produces 2+ path objects:\nthe outline and the fill hachure/pattern. Iterate all paths and emit a createVector for each.\n\n{\n  \"actions\": [],\n  \"ui\": {\n    \"replace\": true,\n    \"controls\": [\n      { \"id\": \"roughness\", \"type\": \"slider\", \"label\": \"Roughness\", \"props\": { \"min\": 0, \"max\": 3, \"step\": 0.1, \"defaultValue\": 1.5 } },\n      { \"id\": \"bowing\", \"type\": \"slider\", \"label\": \"Bowing\", \"props\": { \"min\": 0, \"max\": 10, \"step\": 0.5, \"defaultValue\": 2 } },\n      { \"id\": \"fillStyle\", \"type\": \"select\", \"label\": \"Fill Style\", \"props\": { \"options\": [\"hachure\", \"solid\", \"zigzag\", \"cross-hatch\", \"dots\", \"sunburst\", \"dashed\", \"zigzag-line\"], \"defaultValue\": \"hachure\" } },\n      { \"id\": \"fillColor\", \"type\": \"color\", \"label\": \"Fill\", \"props\": { \"defaultValue\": \"#3B82F6\" } },\n      { \"id\": \"strokeColor\", \"type\": \"color\", \"label\": \"Stroke\", \"props\": { \"defaultValue\": \"#1E293B\" } }\n    ]\n  },\n  \"generate\": \"const SZ = 400;\\\\nconst opts = { roughness: params.roughness || 1.5, bowing: params.bowing || 2, fill: params.fillColor || '#3B82F6', fillStyle: params.fillStyle || 'hachure', stroke: params.strokeColor || '#1E293B', strokeWidth: 2, seed: 42 };\\\\nconst paths = lib.rough.rectangle(50, 50, SZ - 100, SZ - 100, opts);\\\\nconst actions = [];\\\\nactions.push({ method: 'createFrame', tempId: 'root', args: { x: 0, y: 0, width: SZ, height: SZ, name: 'Sketchy Rectangle' } });\\\\nfor (const p of paths) {\\\\n  if (p.fill && p.fill !== 'none') {\\\\n    actions.push({ method: 'createVector', parentId: 'root', args: { data: p.d, fills: [{ type: 'SOLID', color: lib.hexToRgb(p.fill) }], strokes: [] } });\\\\n  } else if (p.stroke && p.stroke !== 'none') {\\\\n    actions.push({ method: 'createVector', parentId: 'root', args: { data: p.d, fills: [], strokes: [{ type: 'SOLID', color: lib.hexToRgb(p.stroke) }] } });\\\\n    actions.push({ method: 'setStroke', nodeId: '__prev', args: { strokes: [{ type: 'SOLID', color: lib.hexToRgb(p.stroke) }], weight: p.strokeWidth || 1 } });\\\\n  }\\\\n}\\\\nreturn actions;\"\n}";
+
+export const MODULE_VOXEL = `#### Voxel art (lib.Heerich) — heerich.js
+
+A tiny engine for 3D voxel scenes rendered to SVG. Build shapes on an integer grid using
+boolean operations, then output a complete SVG string. Zero dependencies.
+
+  Creating an engine:
+  - new lib.Heerich({ tile, camera, style })
+    tile: [width, height] — pixel size per voxel tile (default [40, 40]). Use [20,20] for finer grids.
+    camera: { type: 'oblique', angle: 315, distance: 25 } — projection settings
+    style: { fill: '#ddd', stroke: '#000', strokeWidth: 0.5 } — default face style
+
+  Adding shapes (all use mode 'union' by default):
+  - h.addBox({ position: [x,y,z], size: [w,h,d], mode?, style?, scale?, scaleOrigin?, rotate? })
+  - h.addSphere({ center: [x,y,z], radius, mode?, style?, scale?, scaleOrigin? })
+  - h.addLine({ from: [x,y,z], to: [x,y,z], radius?, shape?, mode?, style? })
+    shape: 'rounded' (sphere brush) or 'square' (cube brush)
+  - h.addWhere({ bounds: [[minX,minY,minZ],[maxX,maxY,maxZ]], test: (x,y,z) => boolean, mode?, style? })
+    Arbitrary geometry via evaluation function.
+
+  Removing shapes (shorthand for mode: 'subtract'):
+  - h.removeBox({ position, size })
+  - h.removeSphere({ center, radius })
+
+  Boolean modes (passed as mode property):
+  - 'union' — add voxels (default)
+  - 'subtract' — carve away voxels
+  - 'intersect' — keep only the overlap
+  - 'exclude' — XOR toggle
+
+  Restyling existing voxels (does NOT add/remove):
+  - h.styleBox({ position, size, style })
+  - h.styleSphere({ center, radius, style })
+
+  Rotation (90-degree increments only):
+  - rotate: { axis: 'x'|'y'|'z', turns: 1|2|3 }
+
+  Per-face styling:
+  - style: { default: { fill, stroke }, top: { fill: '#f00' }, front: { fill: '#0f0' } }
+  - Face names: top, bottom, left, right, front, back, default (fallback)
+
+  Functional styles for gradients/per-voxel color — pass a FUNCTION as the style parameter:
+    For color gradients, use TWO separate "color" controls (not a "fill" control):
+      { "id": "colorStart", "type": "color", "label": "Start Color", "props": { "defaultValue": "#3B82F6" } }
+      { "id": "colorEnd",   "type": "color", "label": "End Color",   "props": { "defaultValue": "#F97316" } }
+    Then in the generator, capture the colors and stroke in closure variables BEFORE the style function:
+      var startColor = params.colorStart || '#3B82F6';
+      var endColor = params.colorEnd || '#F97316';
+      var gridStroke = params.strokeColor || '#374151';
+      var maxY = size - 1;
+      h.addBox({
+        position: [0, 0, 0], size: [size, size, size],
+        style: function(x, y, z) {
+          var t = y / maxY;
+          var color = lib.lerpColor(startColor, endColor, t);
+          return { default: { fill: color, stroke: gridStroke, strokeWidth: 0.5 } };
+        }
+      });
+    The function receives the voxel's (x, y, z) position and must return a face-style map.
+    IMPORTANT: Declare ALL variables used inside the style function BEFORE it (closure capture).
+    IMPORTANT: Use lib.lerpColor(hex1, hex2, t) for gradients — do NOT use lib.chroma.scale or "fill" controls.
+    IMPORTANT: The style function must be a plain function, NOT an arrow function.
+    IMPORTANT: Keep the stroke color separate from the fill so voxel edges remain visible.
+    Only set stroke === fill when the user explicitly asks for a "smooth" look.
+
+  Smooth solids (hide internal grid lines — only when user asks for "smooth"):
+  - Set stroke equal to fill: { fill: '#333', stroke: '#333' }
+
+  Voxel scaling (shrink individual voxels within their cell):
+  - scale: [sx, sy, sz] — 0 to 1 per axis. Auto-sets opaque: false.
+  - scaleOrigin: [0.5, 1, 0.5] — pivot within the 1x1x1 cell
+  - Functional: scale: function(x,y,z) { return [1, 1 - y*0.2, 1]; }
+
+  Camera:
+  - h.setCamera({ type: 'oblique', angle: 315, distance: 25 })
+    angle: rotation in degrees. 315 = classic isometric. 45 = front-right.
+    distance: depth offset scale (higher = flatter)
+  - h.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })
+
+  Output:
+  - h.toSVG({ padding: 30 }) — returns complete \\\`<svg>\\\` string with auto-centered viewBox.
+  - Do NOT call h.getViewBoxBounds() separately. Pass the full toSVG() output to setSvgContent;
+    the system auto-extracts the viewBox and inner content.
+
+  Other utilities:
+  - h.clear() — remove all voxels
+  - h.hasVoxel([x,y,z]) — boolean check
+  - h.forEach(function(voxel, pos) { ... }) — iterate all voxels
+
+  CAMERA + 3d-preview CONTROL:
+  Heerich voxel scenes are 3D — ALWAYS use a 3d-preview control for rotation:
+    { "id": "rotation", "type": "3d-preview", "label": "3D Rotation",
+      "props": { "defaultValue": { "rx": 30, "ry": -45, "rz": 0 } } }
+  Map the 3d-preview values to the heerich camera like this:
+    var rot = params.rotation || { rx: 30, ry: -45, rz: 0 };
+    var cameraAngle = ((rot.ry % 360) + 360) % 360;
+    var cameraDist = 15 + Math.abs(rot.rx) * 0.3;
+    var h = new lib.Heerich({
+      tile: [20, 20],
+      camera: { type: 'oblique', angle: cameraAngle, distance: cameraDist },
+      style: { fill: '#ddd', stroke: '#000', strokeWidth: 0.5 }
+    });
+  This gives smooth interactive rotation. ry controls horizontal orbit, rx controls depth/tilt.
+  Do NOT use dial or slider controls for rotation — always use 3d-preview.
+
+  INTEGRATION PATTERN — use setSvgContent to inject the SVG into a vector node:
+
+  1. Create a frame and a vector child (use the SAME dimensions for both):
+     actions.push({ method: 'createFrame', tempId: 'root', args: { x: 0, y: 0, width: 500, height: 500, name: 'Voxel Art' } });
+     actions.push({ method: 'createVector', parentId: 'root', tempId: 'voxelNode', args: { data: '', x: 0, y: 0, width: 500, height: 500 } });
+
+  2. Build the scene and inject (just pass the full SVG string as content — no viewBox arg needed):
+     var rot = params.rotation || { rx: 30, ry: -45, rz: 0 };
+     var cameraAngle = ((rot.ry % 360) + 360) % 360;
+     var cameraDist = 15 + Math.abs(rot.rx) * 0.3;
+     var h = new lib.Heerich({ tile: [20, 20], camera: { type: 'oblique', angle: cameraAngle, distance: cameraDist }, style: { fill: '#ddd', stroke: '#000', strokeWidth: 0.5 } });
+     h.addBox({ position: [0, 0, 0], size: [6, 4, 3] });
+     h.removeSphere({ center: [3, 2, 1.5], radius: 2 });
+     var svg = h.toSVG({ padding: 20 });
+     actions.push({ method: 'setSvgContent', nodeId: 'voxelNode', args: { content: svg } });
+
+  The setSvgContent handler automatically:
+  - Strips the outer <svg> wrapper
+  - Extracts the viewBox
+  - Resizes the vector node to match the SVG dimensions
+
+  Color helpers available on lib:
+  - lib.rgbToHex(r, g, b) — converts 0-255 RGB to hex string (e.g. '#FF8800')
+  - lib.hexToRgb(hex) — converts hex to { r, g, b } (0-1 range, Figma convention)
+  - lib.lerpColor(hex1, hex2, t) — interpolates between two hex colors, t in [0,1]
+  - lib.chroma(color) — full chroma-js for advanced color operations
+  For gradients, use lib.lerpColor: var color = lib.lerpColor('#0066FF', '#FF6600', i / (count - 1));
+
+  IMPORTANT RULES:
+  - The generate function MUST return the actions array. Do NOT return the SVG string directly.
+  - Keep grid sizes reasonable (under 10x10x10) for performance.
+  - Use fractional centers like [3.5, 3.5, 3.5] with radius 3.5 for smooth spheres.
+  - For smooth solid look, match stroke to fill color.
+  - ALWAYS create the vector node first with createVector, then setSvgContent into it.
+  - Do NOT manually compute viewBox or call getViewBoxBounds(). Just pass h.toSVG() output directly.
+  - The initial frame/vector size can be any reasonable value (400-600px); setSvgContent auto-resizes the vector.
+  - ALWAYS use 3d-preview for rotation, never dial or slider.`;

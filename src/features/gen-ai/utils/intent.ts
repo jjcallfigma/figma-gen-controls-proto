@@ -126,11 +126,11 @@ export function isGenAiIntent(text: string): boolean {
   const lower = text.toLowerCase();
   return (
     // "create/generate/make/build/draw <generative shape or pattern>"
-    /\b(create|generate|make|build|draw)\b.*\b(grid|pattern|dots|circle|rectangle|square|ellipse|shape|line|triangle|polygon|sphere|cube|fractal|tree|voronoi|halftone|palette|swatches|gradient|spiral|scatter|wavy|noise|organic|mosaic|blob|attractor|metaball|turing|reaction.?diffusion|circle.?pack|dla|cellular.?automata|wave.?function|qr|chart|bar.?chart|pie|dither|posterize|flow.?field|wireframe|3d|superformula|rough|sketch|lsystem|l-system)\b/i.test(
+    /\b(create|generate|make|build|draw)\b.*\b(grid|pattern|dots|circle|rectangle|square|ellipse|shape|line|triangle|polygon|sphere|cube|fractal|tree|voronoi|halftone|palette|swatches|gradient|spiral|scatter|wavy|noise|organic|mosaic|blob|attractor|metaball|turing|reaction.?diffusion|circle.?pack|dla|cellular.?automata|wave.?function|qr|chart|bar.?chart|pie|dither|posterize|flow.?field|wireframe|3d|superformula|rough|sketch|lsystem|l-system|voxel|heerich|isometric)\b/i.test(
       lower,
     ) ||
-    // "generate/create/make/build … with controls/sliders/parameters"
-    /\b(generate|create|make|build)\b.*\bwith\b.*\b(controls?|sliders?|parameters?)\b/i.test(
+    // "generate/create/make/build … controls/sliders/parameters" (with or without "with")
+    /\b(generate|create|make|build)\b.*\b(controls?|sliders?|parameters?)\b/i.test(
       lower,
     ) ||
     // Modify-control phrases: "add/remove/change/update … control/slider/parameter"

@@ -5,6 +5,7 @@ import { useAppStore } from "@/core/state/store";
 import type { UISpec, UIControl, ActionDescriptor } from "../types";
 import { compileGenerator, executeGenerator } from "../runtime/codegen";
 import { executeActions, shrinkFrameToChildren } from "../adapter/action-adapter";
+import { toast } from "sonner";
 import "./figui3-scoped.css";
 import PropertyPopover from "@/components/ui/PropertyPopover";
 import PropertyPopoverHeader from "@/components/ui/PropertyPopoverHeader";
@@ -25,6 +26,7 @@ import {
   CubePreview,
   GridSelector,
 } from "./controls";
+import { FigPaletteCarousel } from "./controls/FigPaletteCarousel";
 
 if (typeof window !== "undefined") {
   import("@rogieking/figui3");
@@ -118,7 +120,8 @@ function getDefaultValue(control: UIControl): unknown {
       return props.defaultValue ?? [0.42, 0, 0.58, 1];
     case "3d-preview":
       return props.defaultValue ?? { rx: 0, ry: 0, rz: 0 };
-    case "grid-selector": {
+    case "grid-selector":
+    case "palette-carousel": {
       if (typeof props.defaultValue === "string") return props.defaultValue;
       const opts = Array.isArray(props.options) ? props.options as { value: string }[] : [];
       return opts[0]?.value ?? "";
@@ -392,7 +395,7 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
               }
 
               executeActions(finalActions);
-              shrinkFrameToChildren(frameId);
+              if (!spec.noShrink) shrinkFrameToChildren(frameId);
             } else {
               const control = spec.controls.find((c) => c.id === controlId);
 
@@ -485,7 +488,9 @@ export function CustomControlsPopover({ spec, frameId, isOpen, position, onPosit
       <div className="figui3-scope overflow-y-auto overflow-x-hidden py-2" style={{ maxHeight: 600 }}>
         <div className="flex flex-col">
           {spec.controls.map((control) => {
-            const label = (control.type === "fill" || control.type === "gradient-bar") ? "Fill" : (control.label || control.id);
+            const label = control.type === "button"
+              ? ""
+              : (control.type === "fill" || control.type === "gradient-bar") ? "Fill" : (control.label || control.id);
             return (
             <FieldRow key={control.id} label={label} size={resolveSize(control)}>
               {renderControl(control, values[control.id] ?? getDefaultValue(control), (val) =>
@@ -663,6 +668,45 @@ function renderControl(
           options={props.options as { value: string; label: string; svg: string }[]}
           columns={size === "small" ? 2 : 3}
         />
+      );
+
+    case "palette-carousel":
+      return (
+        <FigPaletteCarousel
+          value={value as string}
+          onChange={onChange as (v: string) => void}
+          options={props.options as { value: string; label: string; colors: string[] }[]}
+          toastMessage={props.toastMessage as string | undefined}
+        />
+      );
+
+    case "button":
+      return (
+        <div key={control.id} style={{ width: "100%", flex: 1 }}>
+          <button
+            className="text-[11px] font-medium transition-colors"
+            style={{
+              background: "transparent",
+              color: "var(--color-text, #333)",
+              border: "1px solid var(--color-border, #D4D4D4)",
+              borderRadius: 5,
+              width: "100%",
+              padding: "4px 0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onClick={() => {
+              const toastMsg = (props as Record<string, unknown>).toastMessage as string | undefined;
+              if (toastMsg) {
+                toast.success(toastMsg);
+              }
+              onChange(true);
+            }}
+          >
+            {label}
+          </button>
+        </div>
       );
 
     default:

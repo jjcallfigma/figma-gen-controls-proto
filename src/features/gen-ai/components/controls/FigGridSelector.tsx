@@ -63,7 +63,7 @@ export function FigGridSelector({
           width: gridWidth,
         }}
       >
-        {options.slice(0, 6).map((opt) => {
+        {options.slice(0, 9).map((opt) => {
           const isSelected = value === opt.value;
 
           return (
